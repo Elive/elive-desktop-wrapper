@@ -1,4 +1,43 @@
 #!/bin/bash
 source /usr/lib/elive-tools/functions
+main(){
+    # pre {{{
 
-enlightenment_start "$@"
+    # }}}
+    # TODO:
+    # - trap E that doesn't ping (kill -9 to restart)
+    #           - implemented in eremote
+    #       - don't ask in the gui if restart, just restart (F1 option)
+    # - trap the returning signal by e17, and ask (restore conf?) (should be always 0 ?)
+    #       - looks like its not returned as an error (enlightenment_start return is not enlightenment one)
+    # - check for configurations to see if user broken something (each 5 minutes maybe could be a good thing)
+    #
+    #
+    #
+    #
+
+    #if [[ -d "$HOME/.e/e17" ]] ; then
+        #cd "$HOME/.e/e17/config/standard"
+
+        #eet -d e.cfg config e.cfg.src
+
+        #if ! grep -qs "value \"icon_theme\" string: \"gnome\";" e.cfg.src ; then
+            #zenity --warning --text="$( eval_gettext "Your icons seems to be wrongly configured, press ok to restart your configuration" )"
+            #killall -9 enlightenment
+            #rm -rf "$HOME/.e" "$HOME/.xsession-errors"
+        #fi
+
+        #rm -f e.cfg.src
+    #fi
+
+    enlightenment_start "$@"
+
+}
+
+#
+#  MAIN
+#
+main "$@"
+
+# vim: set foldmethod=marker :
+
