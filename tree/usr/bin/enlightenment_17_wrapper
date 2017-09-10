@@ -9,9 +9,11 @@ restart_enlightenment(){
     # kill all our E processes running
     while read -ru 3 pid
     do
-        el_error "kill -s SIGSEGV "$pid""
+        el_error "E blocked, killing: $( ps ux | grep -E "\s+$pid\s+" )"
+        kill -s SIGSEGV "$pid"
+
         is_e_restarted=1
-    done 3<<< "$( ps ux | grep -E "\s+/usr/bin/enlightenment(\W|$)" )"
+    done 3<<< "$( ps ux | grep "/usr/bin/enlightenment$" | awk '{print $2}' )"
 
     if ((is_e_restarted)) ; then
         # wait that desktop has restarted before to show the notification
@@ -29,11 +31,22 @@ watch_enlightenment_blocked(){
     do
         pong="$( enlightenment_remote -ping 2>/dev/null )"
         if ! [[ "$pong" = *"pong" ]] ; then
-            restart_enlightenment
+            sleep 2
+
+            pong="$( enlightenment_remote -ping 2>/dev/null )"
+            if ! [[ "$pong" = *"pong" ]] ; then
+                sleep 2
+
+                pong="$( enlightenment_remote -ping 2>/dev/null )"
+                if ! [[ "$pong" = *"pong" ]] ; then
+
+                    restart_enlightenment
+                fi
+            fi
         fi
 
         # check every:
-        sleep 5
+        sleep 10
     done
 }
 
@@ -71,7 +84,7 @@ main(){
     # TODO: does the .xsession-errors is already filled without that option?
 
     # wait that desktop finishes to start before to run checkers
-    sleep 8
+    sleep 20
 
     watch_enlightenment_blocked
 }
