@@ -17,7 +17,7 @@ restart_enlightenment(){
         if ! ps ux | grep -E "\s+$pid\s+" | grep -qsE "(enlightenment_alert|e-crashdump)" ; then
 
             el_error "E blocked, killing '$pid':  $fullprocess"
-            kill -s SEGV "$pid"
+            kill -s SIGSEGV "$pid"
 
             is_e_restarted=1
         fi
@@ -65,7 +65,7 @@ main(){
 
     # }}}
     # TODO:
-    # - trap E that doesn't ping (kill -s SEGV to restart)
+    # - trap E that doesn't ping (kill -s SIGSEGV to restart)
     #           - implemented in eremote
     #       - don't ask in the gui if restart, just restart (F1 option)
     # - trap the returning signal by e17, and ask (restore conf?) (should be always 0 ?)
