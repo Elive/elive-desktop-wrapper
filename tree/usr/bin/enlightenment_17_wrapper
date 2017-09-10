@@ -4,20 +4,30 @@ source /usr/lib/elive-tools/functions
 set -x
 
 restart_enlightenment(){
-    local pid is_e_restarted
+    local pid is_e_restarted fullprocess
 
     # kill all our E processes running
     while read -ru 3 pid
     do
-        el_error "E blocked, killing: $( ps ux | grep -E "\s+$pid\s+" )"
-        kill -s SIGSEGV "$pid"
+        [[ -z "$pid" ]] && continue
 
-        is_e_restarted=1
-    done 3<<< "$( ps ux | grep "/usr/bin/enlightenment$" | awk '{print $2}' )"
+        fullprocess="$( ps ux | grep -E "\s+$pid\s+" | grep -vE "(enlightenment_alert|e-crashdump)" )"
+
+        # kill only if the alert is now shown
+        if ! ps ux | grep -E "\s+$pid\s+" | grep -qsE "(enlightenment_alert|e-crashdump)" ; then
+
+            el_error "E blocked, killing '$pid':  $fullprocess"
+            kill -s SIGSEGV "$pid"
+
+            is_e_restarted=1
+        fi
+
+    done 3<<< "$( ps ux | grep "/usr/bin/enlightenment$" | grep -vE "(enlightenment_alert|e-crashdump)" | awk '{print $2}' )"
+
 
     if ((is_e_restarted)) ; then
         # wait that desktop has restarted before to show the notification
-        sleep 8
+        sleep 10
 
         el_notify_user "Enlightnement Restarted" "Elive detected that your Enlightnement desktop has been blocked and it was restarted. Thank you Elive!"
         unset is_e_restarted
