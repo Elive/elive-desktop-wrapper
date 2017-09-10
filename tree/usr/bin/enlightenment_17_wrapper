@@ -3,10 +3,48 @@ source /usr/lib/elive-tools/functions
 # TODO:
 set -x
 
-restart_enlightenment(){
-    local pid is_e_restarted fullprocess
+send_e_crash_to_elive(){
+    # report anonymous crashes to elive (with user's permission) {{{
+    local eliveversion send_debug_reports_email send_debug_reports id
+    # note: this needs to be run before to kill E (so it's us who kill it)
 
-    # kill all our E processes running
+    if [[ -s "$HOME/.e-crashdump.txt" ]] && el_verify_internet ; then
+
+        source "/etc/elive/settings" 1>/dev/null 2>&1
+
+        if [[ "$send_debug_reports" = "yes" ]] ; then
+            eliveversion="$( awk '$1 ~ /elive-version/ {($1="");print $0}' /etc/elive-version | sed 's/^\ //g' )"
+            # create an unique identifier
+            id="$( dd if=/dev/urandom bs=1k count=2 2>/dev/null | sha1sum | awk '{print $1}' )"
+
+            # send
+            if ! { echo -e "ELIVE_DATA_TYPE: 1.0::${id}::transfer::text::E17_crash::0::::${send_debug_reports_email}::SIGSEV::$( dpkg -l | grep -E "^ii\s+e17-stable\W+" | awk '{print $3}' | head -1 )::${eliveversion}::" ; cat "$HOME/.e-crashdump.txt" ; } | nc www.elivecd.org 60001 -w 6 ; then
+
+                sleep 2
+                if ! { echo -e "ELIVE_DATA_TYPE: 1.0::${id}::transfer::text::E17_crash::0::::${send_debug_reports_email}::SIGSEV::$( dpkg -l | grep -E "^ii\s+e17-stable\W+" | awk '{print $3}' | head -1 )::${eliveversion}::" ; cat "$HOME/.e-crashdump.txt" ; } | nc www.elivecd.org 60001 -w 6 ; then
+
+                    sleep 4
+                    { echo -e "ELIVE_DATA_TYPE: 1.0::${id}::transfer::text::E17_crash::0::::${send_debug_reports_email}::SIGSEV::$( dpkg -l | grep -E "^ii\s+e17-stable\W+" | awk '{print $3}' | head -1 )::${eliveversion}::" ; cat "$HOME/.e-crashdump.txt" ; } | nc www.elivecd.org 60001 -w 6
+
+                fi
+            fi
+        fi
+    fi
+
+    rm -f "$HOME/.e-crashdump.txt"
+
+    # }}}
+}
+
+restart_enlightenment(){
+    # pre {{{
+    local pid is_e_restarted fullprocess eliveversion
+
+    # we had before anything useful to report?
+    send_e_crash_to_elive
+
+    # }}}
+    # kill all our E processes running {{{
     while read -ru 3 pid
     do
         [[ -z "$pid" ]] && continue
@@ -24,14 +62,20 @@ restart_enlightenment(){
 
     done 3<<< "$( ps ux | grep "/usr/bin/enlightenment$" | grep -vE "(enlightenment_alert|e-crashdump)" | awk '{print $2}' )"
 
-
+    # }}}
+    # notify user that E has been restarted by Elive {{{
     if ((is_e_restarted)) ; then
         # wait that desktop has restarted before to show the notification
         sleep 20
 
-        el_notify_user "Enlightnement Restarted" "Elive detected that your Enlightnement desktop has been blocked and it was restarted. Thank you Elive!"
+        # we never want this backtrace, so we killed it manually, no useful info here
+        rm -f "$HOME/.e-crashdump.txt"
+
+        el_notify_user "Enlightnement Restarted" "Elive recovered a crash of your desktop saving your works and opened windows. Thank you Elive!"
         unset is_e_restarted
     fi
+
+    # }}}
 }
 
 watch_enlightenment_blocked(){
@@ -90,7 +134,8 @@ main(){
         #rm -f e.cfg.src
     #fi
 
-    enlightenment_start "$@" 2>"$HOME/.xsession-errors" 1>/dev/null  &
+    #enlightenment_start "$@" 2>"$HOME/.xsession-errors" 1>/dev/null  &
+    enlightenment_start "$@" &
     # TODO: does the .xsession-errors is already filled without that option?
 
     # wait that desktop finishes to start before to run checkers
