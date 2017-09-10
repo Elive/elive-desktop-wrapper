@@ -1,17 +1,54 @@
 #!/bin/bash
 source /usr/lib/elive-tools/functions
+# TODO:
+set -x
+
+restart_enlightenment(){
+    local pid is_e_restarted
+
+    # kill all our E processes running
+    while read -ru 3 pid
+    do
+        el_error "kill -s SIGSEGV "$pid""
+        is_e_restarted=1
+    done 3<<< "$( ps ux | grep -E "\s+/usr/bin/enlightenment(\W|$)" )"
+
+    if ((is_e_restarted)) ; then
+        # wait that desktop has restarted before to show the notification
+        sleep 8
+
+        el_notify_user "Enlightnement Restarted" "Elive detected that your Enlightnement desktop has been blocked and it was restarted. Thank you Elive!"
+        unset is_e_restarted
+    fi
+}
+
+watch_enlightenment_blocked(){
+    local pong
+
+    while true
+    do
+        pong="$( enlightenment_remote -ping 2>/dev/null )"
+        if ! [[ "$pong" = *"pong" ]] ; then
+            restart_enlightenment
+        fi
+
+        # check every:
+        sleep 5
+    done
+}
+
 main(){
     # pre {{{
 
     # }}}
     # TODO:
-    # - trap E that doesn't ping (kill -9 to restart)
+    # - trap E that doesn't ping (kill -s SIGSEGV to restart)
     #           - implemented in eremote
     #       - don't ask in the gui if restart, just restart (F1 option)
     # - trap the returning signal by e17, and ask (restore conf?) (should be always 0 ?)
     #       - looks like its not returned as an error (enlightenment_start return is not enlightenment one)
     # - check for configurations to see if user broken something (each 5 minutes maybe could be a good thing)
-    #
+    # - truncate .xsession-errors very X mb
     #
     #
     #
@@ -30,8 +67,13 @@ main(){
         #rm -f e.cfg.src
     #fi
 
-    enlightenment_start "$@"
+    enlightenment_start "$@" 2>"$HOME/.xsession-errors" 1>/dev/null  &
+    # TODO: does the .xsession-errors is already filled without that option?
 
+    # wait that desktop finishes to start before to run checkers
+    sleep 8
+
+    watch_enlightenment_blocked
 }
 
 #
