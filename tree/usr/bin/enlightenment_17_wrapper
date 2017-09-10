@@ -27,7 +27,7 @@ restart_enlightenment(){
 
     if ((is_e_restarted)) ; then
         # wait that desktop has restarted before to show the notification
-        sleep 10
+        sleep 20
 
         el_notify_user "Enlightnement Restarted" "Elive detected that your Enlightnement desktop has been blocked and it was restarted. Thank you Elive!"
         unset is_e_restarted
