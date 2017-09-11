@@ -81,7 +81,7 @@ restart_enlightenment(){
 watch_enlightenment_blocked(){
     local pong
 
-    while true
+    while pidof enlightenment 1>/dev/null
     do
         pong="$( enlightenment_remote -ping 2>/dev/null )"
         if ! [[ "$pong" = *"pong" ]] ; then
@@ -141,6 +141,7 @@ main(){
     # wait that desktop finishes to start before to run checkers
     sleep 20
 
+    # this watcher stops after no more enlightenment process is running
     watch_enlightenment_blocked
 }
 
