@@ -116,6 +116,8 @@ main(){
     #       - looks like its not returned as an error (enlightenment_start return is not enlightenment one)
     # - check for configurations to see if user broken something (each 5 minutes maybe could be a good thing)
     # - truncate .xsession-errors very X mb
+    # - if multiple crashes (set a counter of crashes and amount of time), ask to the user if restore the default E configuration (like 3 in 1 minute, or 4 in 2 minutes)
+    # - in case of sending debug & "anonymous", ask the user if wants to report debug data (and ask for email, so we can contact him), save this conf to /etc
     #
     #
     #
