@@ -267,9 +267,10 @@ main(){
     rm -f "$HOME/.xsession-errors"
 
     unset E_CONF_PROFILE
+    #enlightenment_start "$@" &
     #enlightenment_start "$@" 2>"$HOME/.xsession-errors" 1>/dev/null  &
-    # TODO: does the .xsession-errors is already filled without that option?
-    enlightenment_start "$@" &
+    # TODO: maybe run it in a "while read line" so that we can parse all the results here?
+    enlightenment_start "$@" 2>&1 | tee "$HOME/.xsession-errors" &
 
 
     # wait that desktop finishes to start before to run checkers
