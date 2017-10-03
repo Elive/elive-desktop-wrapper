@@ -235,6 +235,7 @@ main(){
     # - in case of sending debug & "anonymous", ask the user if wants to report debug data (and ask for email, so we can contact him), save this conf to /etc
     # XXX: done until here
     # if E has been run for more than X days (RAM usage grows over time) like 1 week, restart it -- or check the memory consumption better (so it can grow faster due to errors, or maybe not-so-needed)
+    # incremental backups of E dir (bkp), with automatic restore if user breaks it (instead of restart E conf, which can be a good option too?)
     #
     #
     #
