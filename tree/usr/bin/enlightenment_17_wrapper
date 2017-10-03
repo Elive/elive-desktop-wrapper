@@ -1,34 +1,138 @@
 #!/bin/bash
 source /usr/lib/elive-tools/functions
+#el_make_environment
+. gettext.sh
+TEXTDOMAIN="desktopwrapper"
+export TEXTDOMAIN
+
 # TODO:
 set -x
 
+counter_crash_amount=0
+counter_crash_fast_amount=0
+limit_crash_amount=4
+limit_crash_time=120
+E_CONF_PROFILE="standard"
+
+
+send_debug_reports(){
+    # send debug reports {{{
+
+    source "/etc/elive/settings" 1>/dev/null 2>&1
+
+    if [[ -z "$send_debug_reports_email" ]] && ! ((is_ignore_send_debug_reports)) ; then
+        send_debug_reports_email="$( zenity --entry --text="$( eval_gettext "There's debug information related to your desktop stability that can help us to improve Elive, please insert your email for that." )" )"
+
+        if [[ -n "$send_debug_reports_email" ]] ; then
+            send_debug_reports="yes"
+            el_config_save "send_debug_reports"
+            el_config_save "send_debug_reports_email"
+        else
+            is_ignore_send_debug_reports=1
+            el_config_save "is_ignore_send_debug_reports"
+        fi
+    fi
+
+    if [[ "$send_debug_reports" = "yes" ]] ; then
+        eliveversion="$( awk '$1 ~ /elive-version/ {($1="");print $0}' /etc/elive-version | sed 's/^\ //g' )"
+        # create an unique identifier
+        id="$( dd if=/dev/urandom bs=1k count=2 2>/dev/null | sha1sum | awk '{print $1}' )"
+
+        # send
+        if ! { echo -e "ELIVE_DATA_TYPE: 1.0::${id}::transfer::text::E17_crash::0::::${send_debug_reports_email}::SIGSEV::$( dpkg -l | grep -E "^ii\s+e17-stable\W+" | awk '{print $3}' | head -1 )::${eliveversion}::" ; cat "$HOME/.e-crashdump.txt" ; } | nc www.elivecd.org 60001 -w 6 ; then
+
+        sleep 2
+        if ! { echo -e "ELIVE_DATA_TYPE: 1.0::${id}::transfer::text::E17_crash::0::::${send_debug_reports_email}::SIGSEV::$( dpkg -l | grep -E "^ii\s+e17-stable\W+" | awk '{print $3}' | head -1 )::${eliveversion}::" ; cat "$HOME/.e-crashdump.txt" ; } | nc www.elivecd.org 60001 -w 6 ; then
+
+            sleep 4
+            { echo -e "ELIVE_DATA_TYPE: 1.0::${id}::transfer::text::E17_crash::0::::${send_debug_reports_email}::SIGSEV::$( dpkg -l | grep -E "^ii\s+e17-stable\W+" | awk '{print $3}' | head -1 )::${eliveversion}::" ; cat "$HOME/.e-crashdump.txt" ; } | nc www.elivecd.org 60001 -w 6
+
+            fi
+        fi
+    fi
+
+    # }}}
+}
+
+restart_desktop_configuration(){
+    elive-skel upgrade ".e"
+    el_config_restart
+
+    zenity --info --text="$( eval_gettext "Your desktop configuration has been restored, you can found an old copy of it in:" ) $HOME/.e.old"
+}
+verify_desktop_health(){
+    # E seems like to be unusable due to too much crashes {{{
+    if ((is_e_restarted_fast_too_much)) ; then
+        if zenity --question --text="$( eval_gettext "Your desktop seems to have crashed too much, do you want to restart a new configuration?" )" ; then
+            restart_desktop_configuration
+        fi
+
+        # restart counter
+        is_e_restarted_fast_too_much=0
+        el_config_save "is_e_restarted_fast_too_much"
+    fi
+
+    # }}}
+}
+verify_configuration_validity(){
+    # TODO: make use of different settings (one for each, like pager, ibox, etc)
+    # verify configurations {{{
+    el_check_variables "E_CONF_PROFILE"
+
+    # TODO: we can use enlightenment_remote -module-list | grep "pager -- Enabled" to know if module is loaded or not
+
+    if [[ -s "$HOME/.e/e17/config/$E_CONF_PROFILE/e.cfg" ]] ; then
+        cd "$HOME/.e/e17/config/$E_CONF_PROFILE"
+        eet -d e.cfg config e.cfg.src
+        while read -ru 3 line
+        do
+            el_debug "$line"
+            if [[ "$line" = *"group \"E_Config_Module\" struct {"* ]] ; then
+                el_warning "config structure"
+            fi
+        done 3<<< "$( cat "e.cfg.src")"
+
+
+    else
+        el_error "Invalid E profile using? $E_CONF_PROFILE"
+    fi
+    # - verify configurations }}}
+    # restore desktop {{{
+    if ((is_e_configuration_invalid)) ; then
+        if zenity --question --text="$( eval_gettext "Seems like your desktop has an invalid configuration. Do you want to restart to a new configuration?" )" ; then
+            restart_desktop_configuration
+        fi
+
+        # restart counter
+        is_e_configuration_invalid=0
+        el_config_save "is_e_configuration_invalid"
+    fi
+    # - restore desktop }}}
+}
+
+
 send_e_crash_to_elive(){
     # report anonymous crashes to elive (with user's permission) {{{
-    local eliveversion send_debug_reports_email send_debug_reports id
+    #local eliveversion send_debug_reports_email send_debug_reports id
     # note: this needs to be run before to kill E (so it's us who kill it)
 
     if [[ -s "$HOME/.e-crashdump.txt" ]] && el_verify_internet ; then
 
-        source "/etc/elive/settings" 1>/dev/null 2>&1
+        counter_crash_time_last="$( echo "$(date +%s) - $( stat -c %Z "$HOME/.e-crashdump.txt" )" | LC_ALL=C bc -l | sed -e 's|\..*$||g' )"
+        counter_crash_amount="$(( $counter_crash_amount + 1 ))"
 
-        if [[ "$send_debug_reports" = "yes" ]] ; then
-            eliveversion="$( awk '$1 ~ /elive-version/ {($1="");print $0}' /etc/elive-version | sed 's/^\ //g' )"
-            # create an unique identifier
-            id="$( dd if=/dev/urandom bs=1k count=2 2>/dev/null | sha1sum | awk '{print $1}' )"
-
-            # send
-            if ! { echo -e "ELIVE_DATA_TYPE: 1.0::${id}::transfer::text::E17_crash::0::::${send_debug_reports_email}::SIGSEV::$( dpkg -l | grep -E "^ii\s+e17-stable\W+" | awk '{print $3}' | head -1 )::${eliveversion}::" ; cat "$HOME/.e-crashdump.txt" ; } | nc www.elivecd.org 60001 -w 6 ; then
-
-                sleep 2
-                if ! { echo -e "ELIVE_DATA_TYPE: 1.0::${id}::transfer::text::E17_crash::0::::${send_debug_reports_email}::SIGSEV::$( dpkg -l | grep -E "^ii\s+e17-stable\W+" | awk '{print $3}' | head -1 )::${eliveversion}::" ; cat "$HOME/.e-crashdump.txt" ; } | nc www.elivecd.org 60001 -w 6 ; then
-
-                    sleep 4
-                    { echo -e "ELIVE_DATA_TYPE: 1.0::${id}::transfer::text::E17_crash::0::::${send_debug_reports_email}::SIGSEV::$( dpkg -l | grep -E "^ii\s+e17-stable\W+" | awk '{print $3}' | head -1 )::${eliveversion}::" ; cat "$HOME/.e-crashdump.txt" ; } | nc www.elivecd.org 60001 -w 6
-
-                fi
-            fi
+        if [[ "$counter_crash_time_last" -lt "$limit_crash_time" ]] ; then
+            counter_crash_fast_amount="$(( $counter_crash_fast_amount + 1 ))"
+        else
+            counter_crash_fast_amount=0
         fi
+
+        if [[ "$counter_crash_fast_amount" -gt "$limit_crash_amount" ]] ; then
+            is_e_restarted_fast_too_much=1
+            el_config_save "is_e_restarted_fast_too_much"
+        fi
+
+        send_debug_reports
     fi
 
     rm -f "$HOME/.e-crashdump.txt"
@@ -51,7 +155,7 @@ restart_enlightenment(){
 
         fullprocess="$( ps ux | grep -E "\s+$pid\s+" | grep -vE "(enlightenment_alert|e-crashdump)" )"
 
-        # kill only if the alert is now shown
+        # kill only if the alert is not shown
         if ! ps ux | grep -E "\s+$pid\s+" | grep -qsE "(enlightenment_alert|e-crashdump)" ; then
 
             el_error "E blocked, killing '$pid':  $fullprocess"
@@ -74,6 +178,7 @@ restart_enlightenment(){
         el_notify_user "Enlightnement Restarted" "Elive recovered a crash of your desktop saving your works and opened windows. Thank you Elive!"
         unset is_e_restarted
     fi
+
 
     # }}}
 }
@@ -99,8 +204,18 @@ watch_enlightenment_blocked(){
             fi
         fi
 
+        # save if we are using a different profile
+        if [[ "$E_CONF_PROFILE" != "standard" ]] ; then
+            el_config_save "E_CONF_PROFILE"
+        fi
+
+        # TODO: move to a check "min time" based function that skips the check (resources saving)
+        if [[ "$( du -s "$HOME/.xsession-errors" | awk '{print $1}' )" -gt 10000 ]] ; then
+            : > "$HOME/.xsession-errors"
+        fi
+
         # check every:
-        sleep 10
+        LC_ALL=C sleep 10
     done
 }
 
@@ -118,6 +233,7 @@ main(){
     # - truncate .xsession-errors very X mb
     # - if multiple crashes (set a counter of crashes and amount of time), ask to the user if restore the default E configuration (like 3 in 1 minute, or 4 in 2 minutes)
     # - in case of sending debug & "anonymous", ask the user if wants to report debug data (and ask for email, so we can contact him), save this conf to /etc
+    # XXX: done until here
     #
     #
     #
@@ -136,9 +252,23 @@ main(){
         #rm -f e.cfg.src
     #fi
 
+    el_config_get
+
+    verify_desktop_health
+    #verify_configuration_validity
+
+
+    #
+    # Start E
+    #
+
+    rm -f "$HOME/.xsession-errors"
+
+    unset E_CONF_PROFILE
     #enlightenment_start "$@" 2>"$HOME/.xsession-errors" 1>/dev/null  &
-    enlightenment_start "$@" &
     # TODO: does the .xsession-errors is already filled without that option?
+    enlightenment_start "$@" &
+
 
     # wait that desktop finishes to start before to run checkers
     sleep 20
