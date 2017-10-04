@@ -21,7 +21,8 @@ send_debug_reports(){
     source "/etc/elive/settings" 1>/dev/null 2>&1
 
     if [[ -z "$send_debug_reports_email" ]] && ! ((is_ignore_send_debug_reports)) ; then
-        send_debug_reports_email="$( zenity --entry --text="$( eval_gettext "There's debug information related to your desktop stability that can help us to improve Elive, please insert your email for that." )" )"
+        # FIXME: zenity dialog cannot show here, the timeout is not enough (so its useless since not shows!)
+        send_debug_reports_email="$( timeout 20 zenity --entry --text="$( eval_gettext "There's debug information related to your desktop stability that can help us to improve Elive, please insert your email for that." )" )"
 
         if [[ -n "$send_debug_reports_email" ]] ; then
             send_debug_reports="yes"
@@ -58,11 +59,13 @@ restart_desktop_configuration(){
     elive-skel upgrade ".e"
     el_config_restart
 
-    zenity --info --text="$( eval_gettext "Your desktop configuration has been restored, you can found an old copy of it in:" ) $HOME/.e.old"
+    # FIXME: all the zenity's
+    zenity --info --text="$( eval_gettext "Your desktop configuration has been restored, you can found an old copy of it in:" ) $HOME/.e.old" &
 }
 verify_desktop_health(){
     # E seems like to be unusable due to too much crashes {{{
     if ((is_e_restarted_fast_too_much)) ; then
+        # FIXME: i think that this doesn't shows, use bkp g instead from a previous backup
         if zenity --question --text="$( eval_gettext "Your desktop seems to have crashed too much, do you want to restart a new configuration?" )" ; then
             restart_desktop_configuration
         fi
@@ -175,7 +178,12 @@ restart_enlightenment(){
         # we never want this backtrace, so we killed it manually, no useful info here
         rm -f "$HOME/.e-crashdump.txt"
 
-        el_notify_user "Enlightnement Restarted" "Elive recovered a crash of your desktop saving your works and opened windows. Thank you Elive!"
+        #el_notify_user "Enlightnement Restarted" "Elive recovered a crash of your desktop saving your working state and opened windows. Thank you Elive!"
+        # tell the user in a very nice fashion way
+        el_speak_text -f "initiating special elive recovering"
+
+        sleep 20
+        notify-send -t 20000 "Enlightnement Restarted" "Elive recovered a crash of your desktop saving your working state and opened windows" &
         unset is_e_restarted
     fi
 
@@ -188,15 +196,15 @@ watch_enlightenment_blocked(){
 
     while pidof enlightenment 1>/dev/null
     do
-        pong="$( enlightenment_remote -ping 2>/dev/null )"
+        pong="$( timeout 10 enlightenment_remote -ping 2>/dev/null )"
         if ! [[ "$pong" = *"pong" ]] ; then
             sleep 2
 
-            pong="$( enlightenment_remote -ping 2>/dev/null )"
+            pong="$( timeout 10 enlightenment_remote -ping 2>/dev/null )"
             if ! [[ "$pong" = *"pong" ]] ; then
                 sleep 2
 
-                pong="$( enlightenment_remote -ping 2>/dev/null )"
+                pong="$( timeout 10 enlightenment_remote -ping 2>/dev/null )"
                 if ! [[ "$pong" = *"pong" ]] ; then
 
                     restart_enlightenment
@@ -237,6 +245,7 @@ main(){
     # XXX: done until here
     # if E has been run for more than X days (RAM usage grows over time) like 1 week, restart it -- or check the memory consumption better (so it can grow faster due to errors, or maybe not-so-needed)
     # incremental backups of E dir (bkp), with automatic restore if user breaks it (instead of restart E conf, which can be a good option too?)
+    # include "speaking actions with el_speak_text -f, like: initiating special elive recovering
     #
     #
     #
