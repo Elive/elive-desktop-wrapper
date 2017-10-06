@@ -226,7 +226,7 @@ restart_enlightenment(){
         # kill only if the alert is not shown
         if ! ps ux | grep -E "\s+$pid\s+" | grep -qsE "(enlightenment_alert|e-crashdump)" ; then
 
-            el_error "E blocked, killing '$pid' to recover it:\n$fullprocess"
+            el_error "E blocked, killing '$pid' to recover it: $fullprocess"
             kill -s SIGSEGV "$pid"
 
             is_e_restarted=1
