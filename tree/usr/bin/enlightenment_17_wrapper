@@ -5,17 +5,19 @@ source /usr/lib/elive-tools/functions
 TEXTDOMAIN="desktopwrapper"
 export TEXTDOMAIN
 
-# TODO:
-set -x
-_el_debug="$EL_DEBUG"
-export EL_DEBUG=3
+# no need to enable since we have el_error & debug info
+#set -x
+#_el_debug="$EL_DEBUG"
+#export EL_DEBUG=3
 
 counter_crash_amount=0
 counter_crash_fast_amount=0
 limit_crash_amount=4
 limit_crash_time=120
-# FIXME: remove all this E_CONF_PROFILE stuff and all its callback like saving the configuraions and checking against the standard profile, it uses some resources and we don't need them
-E_CONF_PROFILE="standard"
+limit_logs_check="$(( 2 * 60 * 60 ))" # two hours
+counter_logs_time_last="$( date +%s )"
+# unused, don't enable it
+#E_CONF_PROFILE="standard"
 
 # Lock system (modified for this tool) {{{
 lockfile="/tmp/.$(basename $0)-${USER}.lock"
@@ -34,7 +36,7 @@ else
     PROCCESS=" "
 fi
 if (ps up $PROCCESS) 1>/dev/null 2>&1 ; then
-    el_error "$(basename $0) already running? $(ps aux | grep $0)"
+    el_error "$(basename $0) already running?\n$(ps aux | grep $0)"
 fi
 
 # set a new lockfile no matter what
@@ -111,7 +113,7 @@ send_debug_reports(){
 restart_desktop_configuration(){
     # elive-skel upgrade {{{
     elive-skel upgrade ".e"
-    el_warning "elive-skel upgrade .e - versions: $(dpkg -l | grep -E "^ii.*(libefl1|e17-stable|e17|elive-tools|deliver|elive-desktop)" | awk '{print $2" : "$3}' )"
+    el_warning "elive-skel upgrade .e - versions:\n$(dpkg -l | grep -E "^ii.*(libefl1|e17-stable|e17|elive-tools|deliver|elive-desktop)" | awk '{print $2" : "$3}' )"
 
     el_config_restart
     # - elive-skel upgrade }}}
@@ -126,7 +128,7 @@ restart_desktop_configuration(){
 verify_desktop_health(){
     # E seems like to be unusable due to too much crashes {{{
     if ((is_e_restarted_fast_too_much)) ; then
-        el_warning "E restarted fastly too much - versions: $(dpkg -l | grep -E "^ii.*(libefl1|e17-stable|e17|elive-tools|deliver|elive-desktop)" | awk '{print $2" : "$3}' )"
+        el_warning "E restarted fastly too much - versions:\n$(dpkg -l | grep -E "^ii.*(libefl1|e17-stable|e17|elive-tools|deliver|elive-desktop)" | awk '{print $2" : "$3}' )"
 
         # FIXME: i think that this doesn't shows, use bkp g instead from a previous backup
         if zenity --question --text="$( eval_gettext "Your desktop seems to have crashed too much, do you want to restart a new configuration?" )" ; then
@@ -224,7 +226,7 @@ restart_enlightenment(){
         # kill only if the alert is not shown
         if ! ps ux | grep -E "\s+$pid\s+" | grep -qsE "(enlightenment_alert|e-crashdump)" ; then
 
-            el_error "E blocked, killing '$pid' to recover it:  $fullprocess"
+            el_error "E blocked, killing '$pid' to recover it:\n$fullprocess"
             kill -s SIGSEGV "$pid"
 
             is_e_restarted=1
@@ -284,11 +286,8 @@ watch_enlightenment_blocked(){
 
         # evalate if a check every X time
         counter_logs_time_now="$( date +%s )"
-        if [[ "$counter_logs_time_now" -gt "$(( $counter_logs_time_last + 120 ))" ]] ; then
+        if [[ "$counter_logs_time_now" -gt "$(( $counter_logs_time_last + $limit_logs_check ))" ]] ; then
             counter_logs_time_last="$( date +%s )"
-
-            # TODO: remove warning
-            el_warning "checking again logs (2 min)"
 
             if [[ "$( du -s "$HOME/.xsession-errors" | awk '{print $1}' )" -gt 10000 ]] ; then
                 : > "$HOME/.xsession-errors"
@@ -352,11 +351,12 @@ main(){
 
     rm -f "$HOME/.xsession-errors"
 
-    unset E_CONF_PROFILE
-    #enlightenment_start "$@" &
+    #unset E_CONF_PROFILE
     #enlightenment_start "$@" 2>"$HOME/.xsession-errors" 1>/dev/null  &
     # TODO: maybe run it in a "while read line" so that we can parse all the results here?
-    EL_DEBUG="$_el_debug" enlightenment_start "$@" 2>&1 | tee "$HOME/.xsession-errors" &
+
+    #EL_DEBUG="$_el_debug" enlightenment_start "$@" 2>&1 | tee "$HOME/.xsession-errors" &
+    enlightenment_start "$@" 2>&1 | tee "$HOME/.xsession-errors" &
 
 
     # wait that desktop finishes to start before to run checkers
