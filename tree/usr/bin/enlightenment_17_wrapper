@@ -24,9 +24,11 @@ lockfile="/tmp/.$(basename $0)-${USER}.lock"
 
 exit_ok(){
     rm -f "$lockfile"
+    kill -9 "$e_pid"
 }
 exit_error(){
     rm -f "$lockfile"
+    kill -9 "$e_pid"
     el_error "exit error triggered"
 }
 
@@ -35,19 +37,20 @@ if [[ -r "$lockfile" ]] ; then
 else
     PROCCESS=" "
 fi
+# FIXME: if process is running do a while loop waiting (entire minute or equivalent) to see if finishes the previous process or exit)
 if (ps up $PROCCESS) 1>/dev/null 2>&1 ; then
     el_error "$(basename $0) already running?\n$(ps aux | grep $0)"
+    exit
+else
+    echo $$ > "$lockfile"
 fi
-
 # set a new lockfile no matter what
-echo $$ > "$lockfile"
+#echo $$ > "$lockfile"
+
 
 # traps needs to be after the lock verification, in order to not remove it when we are already running
 trap "exit_ok" EXIT
 trap "exit_error" 1 3 5 6 14 15 ERR TERM
-
-# SET the lock file
-echo "$$" > "$lockfile"
 
 
 # end lock system }}}
@@ -245,7 +248,8 @@ restart_enlightenment(){
 
         #el_notify_user "Enlightnement Restarted" "Elive recovered a crash of your desktop saving your working state and opened windows. Thank you Elive!"
         # tell the user in a very nice fashion way
-        el_speak_text "a-live desktop initiated special recovery"
+        #el_speak_text "a-live desktop initiated special recovery"
+        el_speak_text "ai-live desktop initiated recovery"
 
         sleep 20
         notify-send -t 20000 "Enlightnement Restarted" "Elive recovered a crash of your desktop saving your working state and opened windows" &
@@ -260,7 +264,8 @@ watch_enlightenment_blocked(){
     local pong
 
     # if we don't have pidof, enlightenment_start has finished so the loop ends and we exit from the script
-    while pidof enlightenment 1>/dev/null
+    #while [[ -O "/proc/${e_pid}/cmdline" ]]
+    while kill -0 "$e_pid"
     do
         pong="$( timeout 10 enlightenment_remote -ping 2>/dev/null )"
         if ! [[ "$pong" = *"pong" ]] ; then
@@ -357,10 +362,33 @@ main(){
 
     #EL_DEBUG="$_el_debug" enlightenment_start "$@" 2>&1 | tee "$HOME/.xsession-errors" &
     enlightenment_start "$@" 2>&1 | tee "$HOME/.xsession-errors" &
+    # get the real pid of E
+    while true
+    do
+        sleep 2
+
+        # FIXME: what if more enlightenment's are running?
+        e_pid="$( ps ux | grep -E "\s+$(which enlightenment)$" | grep -E "^${USER}\s+" | awk '{print $2}' | tail -1 )"
+
+        # TODO: temporal check
+        if ! [[ "$(pidof enlightenment)" = "$e_pid" ]] ; then
+            el_warning "pidof enlightenment is not the same as the pid get with ps ux"
+        fi
+
+        # we have the pid
+        #if ps ux | grep -qs "$e_pid" ; then
+        if kill -0 "${e_pid}" ; then
+            # check
+            if ! [[ -O "/proc/${e_pid}/cmdline" ]] ; then
+                el_error "pid exists as $e_pid but is not ours?"
+            fi
+            break
+        fi
+    done
 
 
     # wait that desktop finishes to start before to run checkers
-    sleep 20
+    sleep 10
 
     # this watcher stops after no more enlightenment process is running
     watch_enlightenment_blocked
