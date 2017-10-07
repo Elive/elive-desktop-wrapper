@@ -39,7 +39,7 @@ else
 fi
 # FIXME: if process is running do a while loop waiting (entire minute or equivalent) to see if finishes the previous process or exit)
 if (ps up $PROCCESS) 1>/dev/null 2>&1 ; then
-    el_error "$(basename $0) already running?\n$(ps aux | grep $0)"
+    el_error "$(basename $0) already running? forced exit needed, this should never happen\n$(ps aux | grep -E "($0|enlightenment)" )"
     exit
 else
     echo $$ > "$lockfile"
@@ -300,7 +300,9 @@ watch_enlightenment_blocked(){
         fi
 
         # check every:
-        LC_ALL=C sleep 20
+        # FIXME: a low value eats resources, a big value will not run your X because process is already running... what we should do?
+        # TODO: include a timer in the lockfile check with a max wait time based in these values (asigned from variables)
+        LC_ALL=C sleep 10
     done
 }
 
@@ -349,6 +351,13 @@ main(){
     # not implemented yet
     #verify_configuration_validity
 
+    # kill any possible previous session of E (needed for any possible hanged one and to not have duplicated processes)
+    # FIXME: this can be very bad if it's a double session (like startx from another terminal or using the user-switching feature stuff, already implemented)
+    while read -ru 3 line
+    do
+        kill -9 "$line" 1>/dev/null 2>&1
+    done 3<<< "$( ps ux | grep -E "\s+$(which enlightenment)$" | grep -E "^(${USER}|${UID})\s+" | awk '{print $2}' )"
+
 
     #
     # Start E
@@ -356,19 +365,24 @@ main(){
 
     rm -f "$HOME/.xsession-errors"
 
+
     #unset E_CONF_PROFILE
     #enlightenment_start "$@" 2>"$HOME/.xsession-errors" 1>/dev/null  &
     # TODO: maybe run it in a "while read line" so that we can parse all the results here?
 
     #EL_DEBUG="$_el_debug" enlightenment_start "$@" 2>&1 | tee "$HOME/.xsession-errors" &
     enlightenment_start "$@" 2>&1 | tee "$HOME/.xsession-errors" &
+    sleep 2
     # get the real pid of E
     while true
     do
-        sleep 2
 
         # FIXME: what if more enlightenment's are running?
-        e_pid="$( ps ux | grep -E "\s+$(which enlightenment)$" | grep -E "^${USER}\s+" | awk '{print $2}' | tail -1 )"
+        e_pid="$( ps ux | grep -E "\s+$(which enlightenment)$" | grep -E "^(${USER}|${UID})\s+" | awk '{print $2}' | tail -1 )"
+
+        if [[ -z "$e_pid" ]] ; then
+            continue
+        fi
 
         # TODO: temporal check
         if ! [[ "$(pidof enlightenment)" = "$e_pid" ]] ; then
@@ -384,6 +398,8 @@ main(){
             fi
             break
         fi
+
+        sleep 1
     done
 
 
