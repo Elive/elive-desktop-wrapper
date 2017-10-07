@@ -19,6 +19,8 @@ counter_logs_time_last="$( date +%s )"
 # unused, don't enable it
 #E_CONF_PROFILE="standard"
 
+#TODO: warning with the use of these variables, they will be inherited in the desktop on which we don't need them, use simply parameters, or set variables that will not annoy, unset TEXTDOMAIN
+
 # Lock system (modified for this tool) {{{
 lockfile="/tmp/.$(basename $0)-${USER}.lock"
 
@@ -371,7 +373,8 @@ main(){
     # TODO: maybe run it in a "while read line" so that we can parse all the results here?
 
     #EL_DEBUG="$_el_debug" enlightenment_start "$@" 2>&1 | tee "$HOME/.xsession-errors" &
-    enlightenment_start "$@" 2>&1 | tee "$HOME/.xsession-errors" &
+    #TODO: better way to unset variables?
+    TEXTDOMAIN="" enlightenment_start "$@" 2>&1 | tee "$HOME/.xsession-errors" &
     sleep 2
     # get the real pid of E
     while true
