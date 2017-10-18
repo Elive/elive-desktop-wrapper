@@ -328,6 +328,7 @@ main(){
     # include "speaking actions with el_speak_text -f, like: initiating special elive recovering
     #   - what if the user wants to disable them?
     # implement a special way to upgrade the system (in order that we can found bugs after the release, something like an wget or similar..)
+    # - if ecomorph is already running, kill it when exiting from E
     #
     #
     #
@@ -414,6 +415,9 @@ main(){
 
     # watcher checks the pid so this should always finish correctly
     wait
+
+    # close things when exiting E
+    killall ecomorph 1>/dev/null 2>&1 || killall -9 ecomorph 1>/dev/null 2>&1
 }
 
 #
