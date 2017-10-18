@@ -329,6 +329,7 @@ main(){
     #   - what if the user wants to disable them?
     # implement a special way to upgrade the system (in order that we can found bugs after the release, something like an wget or similar..)
     # - if ecomorph is already running, kill it when exiting from E
+    # - fill everything with el_error and el_warning, or el_report_bug... to know about things that happens!
     #
     #
     #
