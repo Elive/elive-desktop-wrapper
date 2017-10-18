@@ -418,7 +418,7 @@ main(){
     wait
 
     # close things when exiting E
-    if ! pidof enlightenment 1>/dev/null ; then
+    if ! [[ -d "/tmp/e-${USER}@1" ]] ; then
         killall ecomorph 1>/dev/null 2>&1 || killall -9 ecomorph 1>/dev/null 2>&1
     fi
 }
