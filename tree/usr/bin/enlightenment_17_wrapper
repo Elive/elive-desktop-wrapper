@@ -418,7 +418,9 @@ main(){
     wait
 
     # close things when exiting E
-    killall ecomorph 1>/dev/null 2>&1 || killall -9 ecomorph 1>/dev/null 2>&1
+    if ! pidof enlightenment 1>/dev/null ; then
+        killall ecomorph 1>/dev/null 2>&1 || killall -9 ecomorph 1>/dev/null 2>&1
+    fi
 }
 
 #
