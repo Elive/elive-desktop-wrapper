@@ -31,7 +31,7 @@ exit_ok(){
 exit_error(){
     rm -f "$lockfile"
     kill -9 "$e_pid"
-    el_error "exit error triggered"
+    el_error "exit error trap triggered from $(basename $0)"
 }
 
 if [[ -r "$lockfile" ]] ; then
