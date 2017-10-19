@@ -9,6 +9,7 @@ export TEXTDOMAIN
 #set -x
 #_el_debug="$EL_DEBUG"
 #export EL_DEBUG=3
+set -E
 
 counter_crash_amount=0
 counter_crash_fast_amount=0
@@ -26,11 +27,11 @@ lockfile="/tmp/.$(basename $0)-${USER}.lock"
 
 exit_ok(){
     rm -f "$lockfile"
-    kill -9 "$e_pid"
+    kill -9 "$e_pid" || true
 }
 exit_error(){
     rm -f "$lockfile"
-    kill -9 "$e_pid"
+    kill -9 "$e_pid" || true
     el_error "exit error trap triggered from $(basename $0)"
 }
 
@@ -232,7 +233,7 @@ restart_enlightenment(){
         if ! ps ux | grep -E "\s+$pid\s+" | grep -qsE "(enlightenment_alert|e-crashdump)" ; then
 
             el_error "E blocked, killing '$pid' to recover it: $fullprocess"
-            kill -s SIGSEGV "$pid"
+            kill -s SIGSEGV "$pid" || true
 
             is_e_restarted=1
         fi
@@ -267,7 +268,7 @@ watch_enlightenment_blocked(){
 
     # if we don't have pidof, enlightenment_start has finished so the loop ends and we exit from the script
     #while [[ -O "/proc/${e_pid}/cmdline" ]]
-    while kill -0 "$e_pid"
+    while kill -0 "$e_pid" 2>/dev/null
     do
         pong="$( timeout 10 enlightenment_remote -ping 2>/dev/null )"
         if ! [[ "$pong" = *"pong" ]] ; then
@@ -359,7 +360,7 @@ main(){
     # FIXME: this can be very bad if it's a double session (like startx from another terminal or using the user-switching feature stuff, already implemented)
     while read -ru 3 line
     do
-        kill -9 "$line" 1>/dev/null 2>&1
+        kill -9 "$line" 1>/dev/null 2>&1 || true
     done 3<<< "$( ps ux | grep -E "\s+$(which enlightenment)$" | grep -E "^(${USER}|${UID})\s+" | awk '{print $2}' )"
 
 
@@ -419,7 +420,7 @@ main(){
 
     # close things when exiting E
     if ! [[ -d "/tmp/e-${USER}@1" ]] ; then
-        killall ecomorph 1>/dev/null 2>&1 || killall -9 ecomorph 1>/dev/null 2>&1
+        killall ecomorph 1>/dev/null 2>&1 || killall -9 ecomorph 1>/dev/null 2>&1 || true
     fi
 }
 
