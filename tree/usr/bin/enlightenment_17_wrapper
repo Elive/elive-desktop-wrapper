@@ -78,7 +78,8 @@ zenity(){
 
     #pong="$( timeout 3 enlightenment_remote -ping 2>/dev/null || true )"
     #if [[ "$pong" = *"pong" ]] ; then
-    if [[ -z "$DISPLAY" ]] || [[ -z "$XAUTHORITY" ]] ; then
+    #if [[ -z "$DISPLAY" ]] || [[ -z "$XAUTHORITY" ]] ; then
+    if [[ -z "$DISPLAY" ]] ; then
         if command zenity "$@" ; then
             return 0
         else
