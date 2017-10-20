@@ -6,7 +6,7 @@ TEXTDOMAIN="desktopwrapper"
 export TEXTDOMAIN
 
 # no need to enable since we have el_error & debug info
-#set -x
+set -x
 #_el_debug="$EL_DEBUG"
 #export EL_DEBUG=3
 set -E
@@ -27,11 +27,11 @@ lockfile="/tmp/.$(basename $0)-${USER}.lock"
 
 exit_ok(){
     rm -f "$lockfile"
-    kill -9 "$e_pid" || true
+    kill -9 "$e_pid" 2>/dev/null || true
 }
 exit_error(){
     rm -f "$lockfile"
-    kill -9 "$e_pid" || true
+    kill -9 "$e_pid" 2>/dev/null || true
     el_error "exit error trap triggered from $(basename $0) - ${FUNCNAME[@]}"
 }
 
@@ -233,7 +233,7 @@ restart_enlightenment(){
         if ! ps ux | grep -E "\s+$pid\s+" | grep -qsE "(enlightenment_alert|e-crashdump)" ; then
 
             el_error "E blocked, killing '$pid' to recover it: $fullprocess"
-            kill -s SIGSEGV "$pid" || true
+            kill -s SIGSEGV "$pid" 2>/dev/null || true
 
             is_e_restarted=1
         fi
@@ -268,8 +268,8 @@ watch_enlightenment_blocked(){
 
     # if we don't have pidof, enlightenment_start has finished so the loop ends and we exit from the script
     #while [[ -O "/proc/${e_pid}/cmdline" ]]
-    # update: pid can be changed if E crashes itself, so dont use it
     #while kill -0 "$e_pid" 2>/dev/null
+    # update: pid can be changed if E crashes itself, so dont use it
     while true
     do
         # if E exit, check that it works:
@@ -286,6 +286,7 @@ watch_enlightenment_blocked(){
                     pong="$( timeout 10 enlightenment_remote -ping 2>/dev/null )"
                     if ! [[ "$pong" = *"pong" ]] ; then
 
+                        el_warning "E pidof exist but doesn't pongs"
                         restart_enlightenment
                     fi
                 fi
@@ -302,7 +303,8 @@ watch_enlightenment_blocked(){
             if [[ "$counter_logs_time_now" -gt "$(( $counter_logs_time_last + $limit_logs_check ))" ]] ; then
                 counter_logs_time_last="$( date +%s )"
 
-                if [[ "$( du -s "$HOME/.xsession-errors" | awk '{print $1}' )" -gt 10000 ]] ; then
+                if [[ "$( du -s "$HOME/.xsession-errors" | awk '{print $1}' )" -gt 20000 ]] ; then
+                    el_warning "cleaned xsession-errors file because has more than 20 MB"
                     : > "$HOME/.xsession-errors"
                 fi
             fi
@@ -311,9 +313,11 @@ watch_enlightenment_blocked(){
             # if E not answer, try again and if not, exit
             sleep 2
             if [[ ! -n "$(pidof enlightenment)" ]] ; then
+                el_warning "unable to get pidof of E, let's restart E to get it again"
                 restart_enlightenment
                 sleep 2
                 if [[ ! -n "$(pidof enlightenment)" ]] ; then
+                    el_error "no way to get pidof of E, exiting wrapper"
                     break
                 fi
             fi
@@ -395,36 +399,6 @@ main(){
     #EL_DEBUG="$_el_debug" enlightenment_start "$@" 2>&1 | tee "$HOME/.xsession-errors" &
     #TODO: better way to unset variables?
     TEXTDOMAIN="" enlightenment_start "$@" 2>&1 | tee "$HOME/.xsession-errors" &
-    sleep 2
-    # get the real pid of E
-    while true
-    do
-
-        # FIXME: what if more enlightenment's are running?
-        e_pid="$( ps ux | grep -E "\s+$(which enlightenment)$" | grep -E "^(${USER}|${UID})\s+" | awk '{print $2}' | tail -1 )"
-
-        if [[ -z "$e_pid" ]] ; then
-            continue
-        fi
-
-        # TODO: temporal check
-        if ! [[ "$(pidof enlightenment)" = "$e_pid" ]] ; then
-            el_warning "pidof enlightenment is not the same as the pid get with ps ux"
-        fi
-
-        # we have the pid
-        #if ps ux | grep -qs "$e_pid" ; then
-        if kill -0 "${e_pid}" ; then
-            # check
-            if ! [[ -O "/proc/${e_pid}/cmdline" ]] ; then
-                el_error "pid exists as $e_pid but is not ours?"
-            fi
-            break
-        fi
-
-        sleep 1
-    done
-
 
     # wait that desktop finishes to start before to run checkers
     sleep 10
