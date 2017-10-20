@@ -45,9 +45,11 @@ else
 fi
 # FIXME: if process is running do a while loop waiting (entire minute or equivalent) to see if finishes the previous process or exit)
 if (ps up $PROCCESS) 1>/dev/null 2>&1 ; then
-    # kill possible previous wrappers? what if user has multiple sessions?
-    #kill -9 "$( ps ux | grep -v "$pid_wrapper" | grep -v grep | grep -E "\s+$0$" | tail -1 )" 2>/dev/null || true
-    #kill -9 "$( ps ux | grep -v "$pid_wrapper" | grep -v grep | grep -E "\s+$0$" | tail -1 )" 2>/dev/null || true
+    # TODO: kill possible previous wrappers? but ignore if we have already a session opened, we should not need this, so wait to see if we receive any error and if so, implement this part
+    #if ! [[ -d "/tmp/e-${USER}@0" ]] ; then
+        #kill -9 "$( ps ux | grep -v "$pid_wrapper" | grep -v grep | grep -E "\s+$( readlink -f "$0")$" | tail -1 )" 2>/dev/null || true
+        #kill -9 "$( ps ux | grep -v "$pid_wrapper" | grep -v grep | grep -E "\s+$( readlink -f "$0")$" | tail -1 )" 2>/dev/null || true
+    #fi
     # TODO: remove later this entry, since it can make the startup much slower!
     el_error "$(basename $0) already running? forced exit needed? continuing... this should never happen\n$(ps aux | grep -vE "($pid_wrapper|grep)" | grep -E "($0|$(readlink -f $0)|enlightenment)" )"
     #exit
@@ -74,8 +76,9 @@ trap "exit_error" 1 3 5 6 14 15 ERR TERM
 zenity(){
     local pong
 
-    pong="$( timeout 3 enlightenment_remote -ping 2>/dev/null || true )"
-    if [[ "$pong" = *"pong" ]] ; then
+    #pong="$( timeout 3 enlightenment_remote -ping 2>/dev/null || true )"
+    #if [[ "$pong" = *"pong" ]] ; then
+    if [[ -z "$DISPLAY" ]] || [[ -z "$XAUTHORITY" ]] ; then
         if command zenity "$@" ; then
             return 0
         else
@@ -83,7 +86,8 @@ zenity(){
         fi
     else
         # TODO: remove all the errors and warnings since can make the tool slower (nc)
-        el_error "unable to run zenity wrapper because E doesn't pong"
+        #el_error "unable to run zenity wrapper because E doesn't pong"
+        el_error "unable to run zenity wrapper because we don't have access to X"
         # asume always "yes", because we talk in positive
         return 0
     fi
@@ -160,7 +164,6 @@ verify_desktop_health(){
         # TODO: remove in the future
         el_speak_text "desktop restarted too much, suggested to start with a new configuration"
 
-        # FIXME: i think that this doesn't shows, use bkp g instead from a previous backup
         if zenity --question --text="$( eval_gettext "Your desktop seems to have recently crashed too much, do you want to restart a new configuration?" )" ; then
             restart_desktop_configuration
         fi
@@ -172,7 +175,9 @@ verify_desktop_health(){
         el_warning "E restarted fastly too much - versions:\n$(dpkg -l | grep -E "^ii.*(libefl1|e17-stable|e17|elive-tools|deliver|elive-desktop)" | awk '{print $2" : "$3}' )"
     else
         # always do a backup before to start, this will be run in the loop checker
-        is_backup_wanted=1
+        if [[ -d "$HOME/.e" ]] && [[ "$( LC_ALL=C du -s "$HOME/.e" )" -gt 400 ]] ; then
+            is_backup_wanted=1
+        fi
     fi
 
     # }}}
@@ -215,22 +220,24 @@ verify_desktop_health(){
 #}
 
 crashes_watcher(){
-    counter_crash_time_last="$( echo "$(date +%s) - $( stat -c %Z "$HOME/.e-crashdump.txt" )" | LC_ALL=C bc -l | sed -e 's|\..*$||g' )"
-    counter_crash_amount="$(( $counter_crash_amount + 1 ))"
+    if [[ -s "$HOME/.e-crashdump.txt" ]] ; then
+        counter_crash_time_last="$( echo "$(date +%s) - $( stat -c %Z "$HOME/.e-crashdump.txt" )" | LC_ALL=C bc -l | sed -e 's|\..*$||g' )"
+        counter_crash_amount="$(( $counter_crash_amount + 1 ))"
 
-    if [[ "$counter_crash_time_last" -lt "$limit_crash_time" ]] ; then
-        counter_crash_fast_amount="$(( $counter_crash_fast_amount + 1 ))"
-    else
-        counter_crash_fast_amount=0
-    fi
+        if [[ "$counter_crash_time_last" -lt "$limit_crash_time" ]] ; then
+            counter_crash_fast_amount="$(( $counter_crash_fast_amount + 1 ))"
+        else
+            counter_crash_fast_amount=0
+        fi
 
-    if [[ "$counter_crash_fast_amount" -gt "$limit_crash_amount" ]] ; then
-        is_e_restarted_fast_too_much=1
-        el_config_save "is_e_restarted_fast_too_much"
-    else
-        # restart counter
-        is_e_restarted_fast_too_much=0
-        el_config_save "is_e_restarted_fast_too_much"
+        if [[ "$counter_crash_fast_amount" -gt "$limit_crash_amount" ]] ; then
+            is_e_restarted_fast_too_much=1
+            el_config_save "is_e_restarted_fast_too_much"
+        else
+            # restart counter
+            is_e_restarted_fast_too_much=0
+            el_config_save "is_e_restarted_fast_too_much"
+        fi
     fi
 }
 
@@ -239,9 +246,13 @@ send_e_crash_to_elive(){
     # report anonymous crashes to elive (with user's permission) {{{
     #local eliveversion send_debug_reports_email send_debug_reports id
 
-    if [[ -s "$HOME/.e-crashdump.txt" ]] && el_verify_internet ; then
-        crashes_watcher
-        send_debug_reports
+    if ((is_e_restarted)) ; then
+        unset is_e_restarted
+    else
+        if [[ -s "$HOME/.e-crashdump.txt" ]] && el_verify_internet ; then
+            crashes_watcher
+            send_debug_reports
+        fi
     fi
 
     rm -f "$HOME/.e-crashdump.txt"
@@ -286,18 +297,19 @@ restart_enlightenment(){
 
         sleep 20
         notify-send -t 20000 "Enlightnement Restarted" "$( eval_gettext "Elive detected a failure and recovered your desktop saving your working windows" )" &
-        unset is_e_restarted
+
+        # see if we restarted too much, if so, it will be asked to recover configuration in the next startx
+        crashes_watcher
+
+        # this will delete the variable and the crashdump
+        send_e_crash_to_elive
 
         # we never want this backtrace, so we killed it manually, no useful info here
-        rm -f "$HOME/.e-crashdump.txt"
+        #rm -f "$HOME/.e-crashdump.txt"
     fi
 
 
     # }}}
-    # post checks {{{
-    # see if we restarted too much, if so, it will be asked to recover configuration in the next startx
-    crashes_watcher
-    # - post }}}
 }
 
 watch_enlightenment_blocked(){
@@ -367,7 +379,7 @@ watch_enlightenment_blocked(){
         # check every:
         # FIXME: a low value eats resources, a big value will not run your X because process is already running... what we should do?
         # TODO: include a timer in the lockfile check with a max wait time based in these values (asigned from variables)
-        LC_ALL=C sleep 15
+        LC_ALL=C sleep 10
 
         # did we wanted to do a backup?
         if ((is_backup_wanted)) ; then
@@ -464,7 +476,7 @@ main(){
     # this watcher stops after no more enlightenment process is running
     watch_enlightenment_blocked
 
-    # watcher checks the pid so this should always finish correctly
+    # watcher checks the pid so this should always finish correctly, but we need to wait for E to close
     wait
 
     # close things when exiting E
