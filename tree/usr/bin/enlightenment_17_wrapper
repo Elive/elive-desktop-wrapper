@@ -109,7 +109,7 @@ verify_desktop_health(){
         el_warning "E restarted fastly too much - versions:\n$(dpkg -l | grep -E "^ii.*(libefl1|e17-stable|e17|elive-tools|deliver|elive-desktop)" | awk '{print $2" : "$3}' )"
     else
         # always do a backup before to start, this will be run in the loop checker
-        if [[ -d "$HOME/.e" ]] && [[ "$( LC_ALL=C du -s "$HOME/.e" )" -gt 400 ]] ; then
+        if [[ -d "$HOME/.e" ]] && [[ "$( LC_ALL=C du -s "$HOME/.e" | awk '{print $1}' )" -gt 400 ]] ; then
             is_backup_wanted=1
         fi
     fi
@@ -273,15 +273,16 @@ restart_enlightenment(){
 
         # get new pid if changed {{{
         if ((is_e_restarted)) ; then
-            e_pid="$(pidof enlightenment)"
-            if [[ ! -n "$e_pid" ]] ; then
-                sleep 2
+
+            for count in "$( seq 10 )" ; do
                 e_pid="$(pidof enlightenment)"
-                if [[ ! -n "$e_pid" ]] ; then
-                    sleep 2
-                    e_pid="$(pidof enlightenment)"
+
+                if [[ -n "$e_pid" ]] ; then
+                    break
+                else
+                    sleep 1
                 fi
-            fi
+            done
         fi
 
         # }}}
@@ -301,8 +302,20 @@ restart_enlightenment(){
 }
 
 watch_enlightenment_blocked(){
-    local pong
+    local pong count
 
+    # get new pid at the start of E {{{
+    for count in "$( seq 20 )" ; do
+        e_pid="$(pidof enlightenment)"
+
+        if [[ -n "$e_pid" ]] ; then
+            break
+        else
+            sleep 1
+        fi
+    done
+
+    # }}}
     # if we don't have pidof, enlightenment_start has finished so the loop ends and we exit from the script
     #while [[ -O "/proc/${e_pid}/cmdline" ]]
     #while kill -0 "$e_pid" 2>/dev/null
