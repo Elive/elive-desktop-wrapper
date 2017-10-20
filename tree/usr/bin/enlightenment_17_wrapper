@@ -13,7 +13,8 @@ set -x
 
 counter_crash_amount=0
 counter_crash_fast_amount=0
-limit_crash_amount=4
+# TODO: change limits / amounts after betatestings
+limit_crash_amount=2
 limit_crash_time=240 # crash in less than 4 minutes
 limit_logs_check="$(( 2 * 60 * 60 ))" # two hours
 counter_logs_time_last="$( date +%s )"
@@ -47,6 +48,7 @@ if (ps up $PROCCESS) 1>/dev/null 2>&1 ; then
     # kill possible previous wrappers? what if user has multiple sessions?
     #kill -9 "$( ps ux | grep -v "$pid_wrapper" | grep -E "\s+$0$" | tail -1 )" 2>/dev/null || true
     #kill -9 "$( ps ux | grep -v "$pid_wrapper" | grep -E "\s+$0$" | tail -1 )" 2>/dev/null || true
+    # TODO: remove later this entry, since it can make the startup much slower!
     el_error "$(basename $0) already running? forced exit needed? continuing... this should never happen\n$(ps aux | grep -E "($0|$(readlink -f $0)|enlightenment)" )"
     #exit
     echo $$ > "$lockfile"
@@ -76,6 +78,7 @@ zenity(){
             return 1
         fi
     else
+        # TODO: remove all the errors and warnings since can make the tool slower (nc)
         el_error "unable to run zenity wrapper because E doesn't pong"
     fi
 }
@@ -125,7 +128,6 @@ send_debug_reports(){
 restart_desktop_configuration(){
     # elive-skel upgrade {{{
     elive-skel upgrade ".e"
-    el_warning "elive-skel upgrade .e - versions:\n$(dpkg -l | grep -E "^ii.*(libefl1|e17-stable|e17|elive-tools|deliver|elive-desktop)" | awk '{print $2" : "$3}' )"
 
     el_config_restart
     # - elive-skel upgrade }}}
@@ -135,21 +137,25 @@ restart_desktop_configuration(){
     zenity --info --text="$( eval_gettext "Your desktop configuration has been restored, the old configuration is backuped in:" ) $HOME/.e.old"
 
     # - notify user }}}
+    el_warning "elive-skel upgrade .e - versions:\n$(dpkg -l | grep -E "^ii.*(libefl1|e17-stable|e17|elive-tools|deliver|elive-desktop)" | awk '{print $2" : "$3}' )"
 }
 
 verify_desktop_health(){
     # E seems like to be unusable due to too much crashes {{{
     if ((is_e_restarted_fast_too_much)) ; then
-        el_warning "E restarted fastly too much - versions:\n$(dpkg -l | grep -E "^ii.*(libefl1|e17-stable|e17|elive-tools|deliver|elive-desktop)" | awk '{print $2" : "$3}' )"
+        # TODO: remove in the future
+        el_speak_text "desktop restarted too much, suggested to start with a new configuration"
 
         # FIXME: i think that this doesn't shows, use bkp g instead from a previous backup
-        if zenity --question --text="$( eval_gettext "Your desktop seems to have crashed too much, do you want to restart a new configuration?" )" ; then
+        if zenity --question --text="$( eval_gettext "Your desktop seems to have recently crashed too much, do you want to restart a new configuration?" )" ; then
             restart_desktop_configuration
         fi
 
         # restart counter
         is_e_restarted_fast_too_much=0
         el_config_save "is_e_restarted_fast_too_much"
+
+        el_warning "E restarted fastly too much - versions:\n$(dpkg -l | grep -E "^ii.*(libefl1|e17-stable|e17|elive-tools|deliver|elive-desktop)" | awk '{print $2" : "$3}' )"
     fi
 
     # }}}
@@ -191,26 +197,33 @@ verify_desktop_health(){
     ## - restore desktop }}}
 #}
 
+crashes_watcher(){
+    counter_crash_time_last="$( echo "$(date +%s) - $( stat -c %Z "$HOME/.e-crashdump.txt" )" | LC_ALL=C bc -l | sed -e 's|\..*$||g' )"
+    counter_crash_amount="$(( $counter_crash_amount + 1 ))"
+
+    if [[ "$counter_crash_time_last" -lt "$limit_crash_time" ]] ; then
+        counter_crash_fast_amount="$(( $counter_crash_fast_amount + 1 ))"
+    else
+        counter_crash_fast_amount=0
+    fi
+
+    if [[ "$counter_crash_fast_amount" -gt "$limit_crash_amount" ]] ; then
+        is_e_restarted_fast_too_much=1
+        el_config_save "is_e_restarted_fast_too_much"
+    else
+        # restart counter
+        is_e_restarted_fast_too_much=0
+        el_config_save "is_e_restarted_fast_too_much"
+    fi
+}
+
+
 send_e_crash_to_elive(){
     # report anonymous crashes to elive (with user's permission) {{{
     #local eliveversion send_debug_reports_email send_debug_reports id
 
     if [[ -s "$HOME/.e-crashdump.txt" ]] && el_verify_internet ; then
-
-        counter_crash_time_last="$( echo "$(date +%s) - $( stat -c %Z "$HOME/.e-crashdump.txt" )" | LC_ALL=C bc -l | sed -e 's|\..*$||g' )"
-        counter_crash_amount="$(( $counter_crash_amount + 1 ))"
-
-        if [[ "$counter_crash_time_last" -lt "$limit_crash_time" ]] ; then
-            counter_crash_fast_amount="$(( $counter_crash_fast_amount + 1 ))"
-        else
-            counter_crash_fast_amount=0
-        fi
-
-        if [[ "$counter_crash_fast_amount" -gt "$limit_crash_amount" ]] ; then
-            is_e_restarted_fast_too_much=1
-            el_config_save "is_e_restarted_fast_too_much"
-        fi
-
+        crashes_watcher
         send_debug_reports
     fi
 
@@ -238,10 +251,10 @@ restart_enlightenment(){
         # kill only if the alert is not shown
         if ! ps ux | grep -E "\s+$pid\s+" | grep -qsE "(enlightenment_alert|e-crashdump)" ; then
 
-            el_error "E blocked, killing '$pid' to recover it: $fullprocess"
             kill -s SIGSEGV "$pid" 2>/dev/null || true
-
             is_e_restarted=1
+
+            el_error "E blocked, killing '$pid' to recover it: $fullprocess"
         fi
 
     done 3<<< "$( ps ux | grep "/usr/bin/enlightenment$" | grep -vE "(enlightenment_alert|e-crashdump)" | awk '{print $2}' )"
@@ -249,12 +262,6 @@ restart_enlightenment(){
     # }}}
     # notify user that E has been restarted by Elive {{{
     if ((is_e_restarted)) ; then
-        # wait that desktop has restarted before to show the notification
-        sleep 20
-
-        # we never want this backtrace, so we killed it manually, no useful info here
-        rm -f "$HOME/.e-crashdump.txt"
-
         #el_notify_user "Enlightnement Restarted" "Elive recovered a crash of your desktop saving your working state and opened windows. Thank you Elive!"
         # tell the user in a very nice fashion way
         #el_speak_text "a-live desktop initiated special recovery"
@@ -263,10 +270,17 @@ restart_enlightenment(){
         sleep 20
         notify-send -t 20000 "Enlightnement Restarted" "Elive recovered a crash of your desktop saving your working state and opened windows" &
         unset is_e_restarted
+
+        # we never want this backtrace, so we killed it manually, no useful info here
+        rm -f "$HOME/.e-crashdump.txt"
     fi
 
 
     # }}}
+    # post checks {{{
+    # see if we restarted too much, if so, it will be asked to recover configuration in the next startx
+    crashes_watcher
+    # - post }}}
 }
 
 watch_enlightenment_blocked(){
@@ -287,6 +301,7 @@ watch_enlightenment_blocked(){
             e_pid="$(pidof enlightenment)"
 
             if [[ ! -n "$e_pid" ]] ; then
+                # TODO: remove in teh future: slownesses, or add noreports (warning inheritances)
                 el_warning "unable to get pidof of E, so if E has been finished/closed we should exit this tool"
                 break
             fi
@@ -305,8 +320,8 @@ watch_enlightenment_blocked(){
 
                     pong="$( timeout 10 enlightenment_remote -ping 2>/dev/null || true )"
                     if ! [[ "$pong" = *"pong" ]] ; then
-
-                        el_warning "E pidof exist but doesn't pongs, is E running with Dbus?"
+                        # note: this could happen too if dbus is not running under E
+                        el_warning "E pidof exist but doesn't pongs"
                         restart_enlightenment
                     fi
                 fi
@@ -411,7 +426,10 @@ main(){
 
     #EL_DEBUG="$_el_debug" enlightenment_start "$@" 2>&1 | tee "$HOME/.xsession-errors" &
     #TODO: better way to unset variables?
-    TEXTDOMAIN="" enlightenment_start "$@" 2>&1 | tee "$HOME/.xsession-errors" &
+    # TODO: unset all of them, seems like we don't inherit them, since they are set AFTER here
+    TEXTDOMAIN="" \
+        is_e_restarted_fast_too_much="" \
+        enlightenment_start "$@" 2>&1 | tee "$HOME/.xsession-errors" &
 
     # wait that desktop finishes to start before to run checkers
     sleep 10
