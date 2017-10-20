@@ -276,7 +276,7 @@ restart_enlightenment(){
         # get new pid if changed {{{
         if ((is_e_restarted)) ; then
 
-            for count in "$( seq 10 )" ; do
+            for count in $( seq 10 ) ; do
                 e_pid="$( LC_ALL=C pidof enlightenment)"
 
                 if [[ -n "$e_pid" ]] ; then
@@ -307,8 +307,8 @@ watch_enlightenment_blocked(){
     local pong count
 
     # get new pid at the start of E {{{
-    for count in "$( seq 20 )" ; do
-        e_pid="$( LC_ALL=C pidof enlightenment)"
+    for count in $( seq 20 ) ; do
+        e_pid="$( LC_ALL=C pidof enlightenment )"
 
         if [[ -n "$e_pid" ]] ; then
             break
@@ -394,14 +394,14 @@ watch_enlightenment_blocked(){
         # FIXME: there's a problem with the pause, it can be bigger but everytime we exit from E we are stuck on this layer (and so the loop)
 
         # fast checks that E is running (otherwise we are stuck on the wrapper until the full sleep finishes, and we don't want that when we exit E)
-        for count in "$( seq 15 )" ; do
+        for count in $( seq 15 ) ; do
             if LC_ALL=C kill -0 "$e_pid" 1>/dev/null 2>&1 ; then
                 # pause per loop
                 LC_ALL=C sleep 1
             else
                 # maybe E has restarted itself (own crash)
-                if [[ -n "$( LC_ALL=C pidof enlightenment_start)" ]] ; then
-                    e_pid="$( LC_ALL=C pidof enlightenment)"
+                if [[ -n "$( LC_ALL=C pidof enlightenment_start )" ]] ; then
+                    e_pid="$( LC_ALL=C pidof enlightenment )"
                 else
                     break 2
                 fi
