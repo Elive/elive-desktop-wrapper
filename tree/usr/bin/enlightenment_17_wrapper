@@ -9,7 +9,7 @@ export TEXTDOMAIN
 set -x
 #_el_debug="$EL_DEBUG"
 #export EL_DEBUG=3
-set -E
+#set -E # we should not use this or we will always get exit errors (
 
 counter_crash_amount=0
 counter_crash_fast_amount=0
@@ -17,6 +17,7 @@ limit_crash_amount=4
 limit_crash_time=120 # crash in less than 2 minutes
 limit_logs_check="$(( 2 * 60 * 60 ))" # two hours
 counter_logs_time_last="$( date +%s )"
+pid_wrapper="$$"
 # unused, don't enable it
 #E_CONF_PROFILE="standard"
 
@@ -27,12 +28,13 @@ lockfile="/tmp/.$(basename $0)-${USER}.lock"
 
 exit_ok(){
     rm -f "$lockfile"
-    kill -9 "$e_pid" 2>/dev/null || true
+    #kill -9 "$e_pid" 2>/dev/null || true
 }
 exit_error(){
+    exit_pid="$!"
     rm -f "$lockfile"
-    kill -9 "$e_pid" 2>/dev/null || true
-    el_error "exit error trap triggered from $(basename $0) - ${FUNCNAME[@]}"
+    #kill -9 "$e_pid" 2>/dev/null || true
+    el_error "exit error '${exit_pid}' trap triggered from $(basename $0) - ${FUNCNAME[@]}"
 }
 
 if [[ -r "$lockfile" ]] ; then
@@ -42,8 +44,12 @@ else
 fi
 # FIXME: if process is running do a while loop waiting (entire minute or equivalent) to see if finishes the previous process or exit)
 if (ps up $PROCCESS) 1>/dev/null 2>&1 ; then
-    el_error "$(basename $0) already running? forced exit needed, this should never happen\n$(ps aux | grep -E "($0|$(readlink -f $0)|enlightenment)" )"
-    exit
+    # kill possible previous wrappers? what if user has multiple sessions?
+    #kill -9 "$( ps ux | grep -v "$pid_wrapper" | grep -E "\s+$0$" | tail -1 )" 2>/dev/null || true
+    #kill -9 "$( ps ux | grep -v "$pid_wrapper" | grep -E "\s+$0$" | tail -1 )" 2>/dev/null || true
+    el_error "$(basename $0) already running? forced exit needed? continuing... this should never happen\n$(ps aux | grep -E "($0|$(readlink -f $0)|enlightenment)" )"
+    #exit
+    echo $$ > "$lockfile"
 else
     echo $$ > "$lockfile"
 fi
@@ -62,7 +68,7 @@ trap "exit_error" 1 3 5 6 14 15 ERR TERM
 zenity(){
     local pong
 
-    pong="$( timeout 10 enlightenment_remote -ping 2>/dev/null )"
+    pong="$( timeout 10 enlightenment_remote -ping 2>/dev/null || true )"
     if [[ "$pong" = *"pong" ]] ; then
         if command zenity "$@" ; then
             return 0
@@ -90,9 +96,9 @@ send_debug_reports(){
         eliveversion="$( el_elive_version_get )"
         # create an unique identifier
         if el_check_sudo_automated ; then
-            id="$( timeout 3 sudo blkid | grep -oP 'UUID="\K[^"]+' | sha256sum | awk '{print $1}' )"
+            id="$( timeout 3 sudo blkid | grep -oP 'UUID="\K[^"]+' | sha256sum | awk '{print $1}' || true )"
         else
-            id="$( ip a | grep -E "(link/ether|fe80)" | sha256sum | awk '{print $1}' )"
+            id="$( ip a | grep -E "(link/ether|fe80)" | sha256sum | awk '{print $1}' || true )"
         fi
 
         if [[ -z "$send_debug_reports_email" ]] ; then
@@ -275,15 +281,15 @@ watch_enlightenment_blocked(){
         # if E exit, check that it works:
         if [[ -n "$(pidof enlightenment)" ]] ; then
 
-            pong="$( timeout 10 enlightenment_remote -ping 2>/dev/null )"
+            pong="$( timeout 10 enlightenment_remote -ping 2>/dev/null || true )"
             if ! [[ "$pong" = *"pong" ]] ; then
                 sleep 2
 
-                pong="$( timeout 10 enlightenment_remote -ping 2>/dev/null )"
+                pong="$( timeout 10 enlightenment_remote -ping 2>/dev/null || true )"
                 if ! [[ "$pong" = *"pong" ]] ; then
                     sleep 2
 
-                    pong="$( timeout 10 enlightenment_remote -ping 2>/dev/null )"
+                    pong="$( timeout 10 enlightenment_remote -ping 2>/dev/null || true )"
                     if ! [[ "$pong" = *"pong" ]] ; then
 
                         el_warning "E pidof exist but doesn't pongs"
@@ -326,7 +332,7 @@ watch_enlightenment_blocked(){
         # check every:
         # FIXME: a low value eats resources, a big value will not run your X because process is already running... what we should do?
         # TODO: include a timer in the lockfile check with a max wait time based in these values (asigned from variables)
-        LC_ALL=C sleep 8
+        LC_ALL=C sleep 10
     done
 }
 
