@@ -14,7 +14,7 @@ set -E
 counter_crash_amount=0
 counter_crash_fast_amount=0
 limit_crash_amount=4
-limit_crash_time=120
+limit_crash_time=120 # crash in less than 2 minutes
 limit_logs_check="$(( 2 * 60 * 60 ))" # two hours
 counter_logs_time_last="$( date +%s )"
 # unused, don't enable it
@@ -32,7 +32,7 @@ exit_ok(){
 exit_error(){
     rm -f "$lockfile"
     kill -9 "$e_pid" || true
-    el_error "exit error trap triggered from $(basename $0)"
+    el_error "exit error trap triggered from $(basename $0) - ${FUNCNAME[@]}"
 }
 
 if [[ -r "$lockfile" ]] ; then
@@ -42,7 +42,7 @@ else
 fi
 # FIXME: if process is running do a while loop waiting (entire minute or equivalent) to see if finishes the previous process or exit)
 if (ps up $PROCCESS) 1>/dev/null 2>&1 ; then
-    el_error "$(basename $0) already running? forced exit needed, this should never happen\n$(ps aux | grep -E "($0|enlightenment)" )"
+    el_error "$(basename $0) already running? forced exit needed, this should never happen\n$(ps aux | grep -E "($0|$(readlink -f $0)|enlightenment)" )"
     exit
 else
     echo $$ > "$lockfile"
@@ -268,11 +268,12 @@ watch_enlightenment_blocked(){
 
     # if we don't have pidof, enlightenment_start has finished so the loop ends and we exit from the script
     #while [[ -O "/proc/${e_pid}/cmdline" ]]
-    while kill -0 "$e_pid" 2>/dev/null
+    # update: pid can be changed if E crashes itself, so dont use it
+    #while kill -0 "$e_pid" 2>/dev/null
+    while true
     do
-        pong="$( timeout 10 enlightenment_remote -ping 2>/dev/null )"
-        if ! [[ "$pong" = *"pong" ]] ; then
-            sleep 2
+        # if E exit, check that it works:
+        if [[ -n "$(pidof enlightenment)" ]] ; then
 
             pong="$( timeout 10 enlightenment_remote -ping 2>/dev/null )"
             if ! [[ "$pong" = *"pong" ]] ; then
@@ -280,32 +281,48 @@ watch_enlightenment_blocked(){
 
                 pong="$( timeout 10 enlightenment_remote -ping 2>/dev/null )"
                 if ! [[ "$pong" = *"pong" ]] ; then
+                    sleep 2
 
-                    restart_enlightenment
+                    pong="$( timeout 10 enlightenment_remote -ping 2>/dev/null )"
+                    if ! [[ "$pong" = *"pong" ]] ; then
+
+                        restart_enlightenment
+                    fi
                 fi
             fi
-        fi
 
-        # save if we are using a different profile
-        #E_CONF_PROFILE="$( enlightenment_remote -default-profile-get )"
-        #if [[ "$E_CONF_PROFILE" != "standard" ]] ; then
+            # save if we are using a different profile
+            #E_CONF_PROFILE="$( enlightenment_remote -default-profile-get )"
+            #if [[ "$E_CONF_PROFILE" != "standard" ]] ; then
             #el_config_save "E_CONF_PROFILE"
-        #fi
+            #fi
 
-        # evalate if a check every X time
-        counter_logs_time_now="$( date +%s )"
-        if [[ "$counter_logs_time_now" -gt "$(( $counter_logs_time_last + $limit_logs_check ))" ]] ; then
-            counter_logs_time_last="$( date +%s )"
+            # evalate if a check every X time
+            counter_logs_time_now="$( date +%s )"
+            if [[ "$counter_logs_time_now" -gt "$(( $counter_logs_time_last + $limit_logs_check ))" ]] ; then
+                counter_logs_time_last="$( date +%s )"
 
-            if [[ "$( du -s "$HOME/.xsession-errors" | awk '{print $1}' )" -gt 10000 ]] ; then
-                : > "$HOME/.xsession-errors"
+                if [[ "$( du -s "$HOME/.xsession-errors" | awk '{print $1}' )" -gt 10000 ]] ; then
+                    : > "$HOME/.xsession-errors"
+                fi
+            fi
+
+        else
+            # if E not answer, try again and if not, exit
+            sleep 2
+            if [[ ! -n "$(pidof enlightenment)" ]] ; then
+                restart_enlightenment
+                sleep 2
+                if [[ ! -n "$(pidof enlightenment)" ]] ; then
+                    break
+                fi
             fi
         fi
 
         # check every:
         # FIXME: a low value eats resources, a big value will not run your X because process is already running... what we should do?
         # TODO: include a timer in the lockfile check with a max wait time based in these values (asigned from variables)
-        LC_ALL=C sleep 10
+        LC_ALL=C sleep 8
     done
 }
 
