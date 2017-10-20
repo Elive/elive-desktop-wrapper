@@ -22,6 +22,7 @@ counter_logs_time_last="$( date +%s )"
 pid_wrapper="$$"
 # unused, don't enable it
 #E_CONF_PROFILE="standard"
+# FIXME: review all the process from the start to the launch of E and see bottlenecks, specially calling el_error's and others
 
 # Lock system (modified for this tool) {{{
 lockfile="/tmp/.$(basename $0)-${USER}.lock"
@@ -45,10 +46,10 @@ fi
 # FIXME: if process is running do a while loop waiting (entire minute or equivalent) to see if finishes the previous process or exit)
 if (ps up $PROCCESS) 1>/dev/null 2>&1 ; then
     # TODO: kill possible previous wrappers? but ignore if we have already a session opened, we should not need this, so wait to see if we receive any error and if so, implement this part
-    #if ! [[ -d "/tmp/e-${USER}@0" ]] ; then
-        #kill -9 "$( ps ux | grep -v "$pid_wrapper" | grep -v grep | grep -E "\s+$( readlink -f "$0")$" | tail -1 )" 2>/dev/null || true
-        #kill -9 "$( ps ux | grep -v "$pid_wrapper" | grep -v grep | grep -E "\s+$( readlink -f "$0")$" | tail -1 )" 2>/dev/null || true
-    #fi
+    if ! [[ -d "/tmp/e-${USER}@0" ]] && ! [[ -d "/tmp/e-${USER}@2" ]] ; then
+        kill -9 "$( ps ux | grep -vE "($pid_wrapper|grep)" | grep -E "\s+$( readlink -f "$0")$" | awk '{print $2}' | tail -1 )" 2>/dev/null || true
+        kill -9 "$( ps ux | grep -vE "($pid_wrapper|grep)" | grep -E "\s+$( readlink -f "$0")$" | awk '{print $2}' | tail -1 )" 2>/dev/null || true
+    fi
     # TODO: remove later this entry, since it can make the startup much slower!
     el_error "$(basename $0) already running? forced exit needed? continuing... this should never happen\n$(ps aux | grep -vE "($pid_wrapper|grep)" | grep -E "($0|$(readlink -f $0)|enlightenment)" )"
     #exit
@@ -249,10 +250,11 @@ restart_enlightenment(){
     do
         [[ -z "$pid" ]] && continue
 
+        # TODO: delete
         fullprocess="$( ps ux | grep -E "\s+$pid\s+" | grep -vE "(enlightenment_alert|e-crashdump)" )"
 
         # kill only if the alert is not shown
-        if ! ps ux | grep -E "\s+$pid\s+" | grep -qsE "(enlightenment_alert|e-crashdump)" ; then
+        if ! ps ux | grep -qsE "\s+$pid\s+(enlightenment_alert|e-crashdump)" ; then
 
             kill -s SIGSEGV "$pid" 2>/dev/null || true
             is_e_restarted=1
@@ -362,6 +364,9 @@ watch_enlightenment_blocked(){
                 fi
             fi
 
+            #all good, don't bottleneck
+            LC_ALL=C sleep 2
+
             # save if we are using a different profile
             #E_CONF_PROFILE="$( enlightenment_remote -default-profile-get )"
             #if [[ "$E_CONF_PROFILE" != "standard" ]] ; then
@@ -394,10 +399,10 @@ watch_enlightenment_blocked(){
         # FIXME: there's a problem with the pause, it can be bigger but everytime we exit from E we are stuck on this layer (and so the loop)
 
         # fast checks that E is running (otherwise we are stuck on the wrapper until the full sleep finishes, and we don't want that when we exit E)
-        for count in $( seq 15 ) ; do
+        for count in $( seq 8 ) ; do
             if LC_ALL=C kill -0 "$e_pid" 1>/dev/null 2>&1 ; then
                 # pause per loop
-                LC_ALL=C sleep 1
+                LC_ALL=C sleep 2
             else
                 # maybe E has restarted itself (own crash)
                 if [[ -n "$( LC_ALL=C pidof enlightenment_start )" ]] ; then
