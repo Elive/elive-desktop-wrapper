@@ -36,6 +36,7 @@ exit_error(){
     rm -f "$lockfile"
     kill -9 "$e_pid" 2>/dev/null || true
     el_error "exit error '${exit_pid}' trap triggered from $(basename $0) - ${FUNCNAME[@]}"
+    unset exit_pid
 }
 
 if [[ -r "$lockfile" ]] ; then
@@ -46,9 +47,10 @@ fi
 # FIXME: if process is running do a while loop waiting (entire minute or equivalent) to see if finishes the previous process or exit)
 if (ps up $PROCCESS) 1>/dev/null 2>&1 ; then
     # TODO: kill possible previous wrappers? but ignore if we have already a session opened, we should not need this, so wait to see if we receive any error and if so, implement this part
-    if ! [[ -d "/tmp/e-${USER}@0" ]] && ! [[ -d "/tmp/e-${USER}@2" ]] ; then
-        kill -9 "$( ps ux | grep -vE "($pid_wrapper|grep)" | grep -E "\s+$( readlink -f "$0")$" | awk '{print $2}' | tail -1 )" 2>/dev/null || true
-        kill -9 "$( ps ux | grep -vE "($pid_wrapper|grep)" | grep -E "\s+$( readlink -f "$0")$" | awk '{print $2}' | tail -1 )" 2>/dev/null || true
+    if ! [[ -d "/tmp/e-${USER}@0" ]] && ! [[ -d "/tmp/e-${USER}@1" ]] ; then
+        kill -9 "$( ps ux | grep -vE "($pid_wrapper|grep|xinit|startx|lightdm)" | grep -E "\s+$( readlink -f "$0")$" | awk '{print $2}' | tail -1 )" 2>/dev/null || true
+        kill -9 "$( ps ux | grep -vE "($pid_wrapper|grep|xinit|startx|lightdm)" | grep -E "\s+$( readlink -f "$0")$" | awk '{print $2}' | tail -1 )" 2>/dev/null || true
+        kill -9 "$( ps ux | grep -vE "($pid_wrapper|grep|xinit|startx|lightdm)" | grep -E "\s+$( readlink -f "$0")$" | awk '{print $2}' | tail -1 )" 2>/dev/null || true
     fi
     # TODO: remove later this entry, since it can make the startup much slower!
     el_error "$(basename $0) already running? forced exit needed? continuing... this should never happen\n$(ps aux | grep -vE "($pid_wrapper|grep)" | grep -E "($0|$(readlink -f $0)|enlightenment)" )"
@@ -516,6 +518,9 @@ main(){
     if ! [[ -d "/tmp/e-${USER}@1" ]] ; then
         killall ecomorph 1>/dev/null 2>&1 || killall -9 ecomorph 1>/dev/null 2>&1 || true
     fi
+
+    # cleanup
+    rm -f "$lockfile"
 }
 
 #
