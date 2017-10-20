@@ -6,7 +6,7 @@ TEXTDOMAIN="desktopwrapper"
 export TEXTDOMAIN
 
 # no need to enable since we have el_error & debug info
-set -x
+#set -x
 #_el_debug="$EL_DEBUG"
 #export EL_DEBUG=3
 #set -E # we should not use this or we will always get exit errors (
@@ -49,11 +49,15 @@ if (ps up $PROCCESS) 1>/dev/null 2>&1 ; then
     #kill -9 "$( ps ux | grep -v "$pid_wrapper" | grep -E "\s+$0$" | tail -1 )" 2>/dev/null || true
     #kill -9 "$( ps ux | grep -v "$pid_wrapper" | grep -E "\s+$0$" | tail -1 )" 2>/dev/null || true
     # TODO: remove later this entry, since it can make the startup much slower!
-    el_error "$(basename $0) already running? forced exit needed? continuing... this should never happen\n$(ps aux | grep -E "($0|$(readlink -f $0)|enlightenment)" )"
+    el_error "$(basename $0) already running? forced exit needed? continuing... this should never happen\n$(ps aux | grep -v "$pid_wrapper" | grep -E "($0|$(readlink -f $0)|enlightenment)" )"
     #exit
     echo $$ > "$lockfile"
 else
     echo $$ > "$lockfile"
+fi
+# TODO: remove in the future:
+if ps aux | grep -v "$pid_wrapper" | grep -qsE "($0|$(readlink -f $0))" ; then
+    el_warning "$(basename $0) previously running? forced exit needed? continuing... this should never happen\n$(ps aux | grep -v "$pid_wrapper" | grep -E "($0|$(readlink -f $0))" )"
 fi
 # set a new lockfile no matter what
 #echo $$ > "$lockfile"
@@ -80,6 +84,8 @@ zenity(){
     else
         # TODO: remove all the errors and warnings since can make the tool slower (nc)
         el_error "unable to run zenity wrapper because E doesn't pong"
+        # asume always "yes", because we talk in positive
+        return 0
     fi
 }
 
@@ -127,9 +133,18 @@ send_debug_reports(){
 
 restart_desktop_configuration(){
     # elive-skel upgrade {{{
-    elive-skel upgrade ".e"
+    # TODO: ask if clean or last:
+    if zenity --question --text="$( eval_gettext "Do you want restore your desktop configuration from your last login instead of restart a new conf?" )" ; then
+        cd "$HOME/.e"
+        bkp get
+        cd
+    else
+        elive-skel upgrade ".e"
+    fi
 
-    el_config_restart
+    # restart counter and variable
+    is_e_restarted_fast_too_much=0
+    el_config_save "is_e_restarted_fast_too_much"
     # - elive-skel upgrade }}}
     # notify user {{{
     el_speak_text "a-live desktop configuration upgraded"
@@ -156,6 +171,9 @@ verify_desktop_health(){
         el_config_save "is_e_restarted_fast_too_much"
 
         el_warning "E restarted fastly too much - versions:\n$(dpkg -l | grep -E "^ii.*(libefl1|e17-stable|e17|elive-tools|deliver|elive-desktop)" | awk '{print $2" : "$3}' )"
+    else
+        # always do a backup before to start, this will be run in the loop checker
+        is_backup_wanted=1
     fi
 
     # }}}
@@ -268,7 +286,7 @@ restart_enlightenment(){
         el_speak_text "ai-live desktop initiated recovery"
 
         sleep 20
-        notify-send -t 20000 "Enlightnement Restarted" "Elive recovered a crash of your desktop saving your working state and opened windows" &
+        notify-send -t 20000 "Enlightnement Restarted" "$( eval_gettext "Elive detected a failure and recovered your desktop saving your working windows" )" &
         unset is_e_restarted
 
         # we never want this backtrace, so we killed it manually, no useful info here
@@ -321,7 +339,6 @@ watch_enlightenment_blocked(){
                     pong="$( timeout 10 enlightenment_remote -ping 2>/dev/null || true )"
                     if ! [[ "$pong" = *"pong" ]] ; then
                         # note: this could happen too if dbus is not running under E
-                        el_warning "E pidof exist but doesn't pongs"
                         restart_enlightenment
                     fi
                 fi
@@ -345,14 +362,23 @@ watch_enlightenment_blocked(){
             fi
 
         else
-            # TODO: does this function is accessible from inside E ? (inherited)
             restart_enlightenment
         fi
 
         # check every:
         # FIXME: a low value eats resources, a big value will not run your X because process is already running... what we should do?
         # TODO: include a timer in the lockfile check with a max wait time based in these values (asigned from variables)
-        LC_ALL=C sleep 10
+        LC_ALL=C sleep 15
+
+        # did we wanted to do a backup?
+        if ((is_backup_wanted)) ; then
+            cd "$HOME/.e"
+            bkp remove
+            bkp save
+            cd
+            unset is_backup_wanted
+        fi
+
     done
 }
 
