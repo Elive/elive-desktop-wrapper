@@ -6,7 +6,7 @@ TEXTDOMAIN="desktopwrapper"
 export TEXTDOMAIN
 
 # no need to enable since we have el_error & debug info
-set -x
+#set -x
 #_el_debug="$EL_DEBUG"
 #export EL_DEBUG=3
 #set -E # we should not use this or we will always get exit errors (
@@ -131,7 +131,7 @@ restart_desktop_configuration(){
     # notify user {{{
     el_speak_text "a-live desktop configuration upgraded"
 
-    timeout 50 zenity --info --text="$( eval_gettext "Your desktop configuration has been restored, the old configuration is backuped in:" ) $HOME/.e.old"
+    timeout 50 zenity --info --text="$( eval_gettext "Your desktop configuration has been restored, the old configuration is backuped in:" )\n$HOME/.e.old"
 
     # - notify user }}}
     #el_warning "elive-skel upgrade .e - versions:\n$(dpkg -l | grep -E "^ii.*(libefl1|e17-stable|e17|elive-tools|deliver|elive-desktop)" | awk '{print $2" : "$3}' )"
