@@ -13,9 +13,11 @@ export TEXTDOMAIN
 
 counter_crash_amount=0
 counter_crash_fast_amount=0
+
 limit_crash_amount=3
 limit_crash_time=240 # previous crash happened in less than 4 minutes
 limit_logs_check="$(( 2 * 60 * 60 ))" # two hours
+
 counter_logs_time_last="$( date +%s )"
 pid_wrapper="$$"
 # unused, don't enable it
@@ -213,10 +215,10 @@ send_e_crash_to_elive(){
                 # send
                 if ! { echo -e "ELIVE_DATA_TYPE: 1.0::${id}::transfer::text::E17_crash::0::::${send_debug_reports_email}::SIGSEV::$( dpkg -l | grep -E "^ii\s+e17-stable\W+" | awk '{print $3}' | head -1 )::${eliveversion}::" ; cat "$HOME/.e-crashdump.txt" ; } | nc www.elivecd.org 60001 -w 6 1>/dev/null 2>&1 ; then
 
-                    sleep 2
+                    LC_ALL=C sleep 2
                     if ! { echo -e "ELIVE_DATA_TYPE: 1.0::${id}::transfer::text::E17_crash::0::::${send_debug_reports_email}::SIGSEV::$( dpkg -l | grep -E "^ii\s+e17-stable\W+" | awk '{print $3}' | head -1 )::${eliveversion}::" ; cat "$HOME/.e-crashdump.txt" ; } | nc www.elivecd.org 60001 -w 6 1>/dev/null 2>&1 ; then
 
-                        sleep 4
+                        LC_ALL=C sleep 4
                         { echo -e "ELIVE_DATA_TYPE: 1.0::${id}::transfer::text::E17_crash::0::::${send_debug_reports_email}::SIGSEV::$( dpkg -l | grep -E "^ii\s+e17-stable\W+" | awk '{print $3}' | head -1 )::${eliveversion}::" ; cat "$HOME/.e-crashdump.txt" ; } | nc www.elivecd.org 60001 -w 6 1>/dev/null 2>&1
 
                         fi
@@ -268,19 +270,19 @@ restart_enlightenment(){
         #el_speak_text "a-live desktop initiated special recovery"
         el_speak_text "ai-live desktop initiated recovery"
 
-        sleep 20
+        LC_ALL=C sleep 20
         notify-send -t 20000 "Enlightnement Restarted" "$( eval_gettext "Elive detected a failure and recovered your desktop saving your working windows" )" &
 
         # get new pid if changed {{{
         if ((is_e_restarted)) ; then
 
             for count in "$( seq 10 )" ; do
-                e_pid="$(pidof enlightenment)"
+                e_pid="$( LC_ALL=C pidof enlightenment)"
 
                 if [[ -n "$e_pid" ]] ; then
                     break
                 else
-                    sleep 1
+                    LC_ALL=C sleep 1
                 fi
             done
         fi
@@ -306,12 +308,12 @@ watch_enlightenment_blocked(){
 
     # get new pid at the start of E {{{
     for count in "$( seq 20 )" ; do
-        e_pid="$(pidof enlightenment)"
+        e_pid="$( LC_ALL=C pidof enlightenment)"
 
         if [[ -n "$e_pid" ]] ; then
             break
         else
-            sleep 1
+            LC_ALL=C sleep 1
         fi
     done
 
@@ -323,7 +325,7 @@ watch_enlightenment_blocked(){
     while true
     do
         # get actual pid
-        #e_pid="$(pidof enlightenment)"
+        #e_pid="$( LC_ALL=C pidof enlightenment)"
 
         # if there's no pid, E has finished, so let's exit, and do not try to get a new one first
         if [[ ! -n "$e_pid" ]] ; then
@@ -332,7 +334,7 @@ watch_enlightenment_blocked(){
         #if [[ ! -n "$e_pid" ]] || ! kill -0 "$e_pid" 2>/dev/null ; then
             ## if E not answer, try again and if not, exit
             #sleep 2
-            #e_pid="$(pidof enlightenment)"
+            #e_pid="$( LC_ALL=C pidof enlightenment)"
 
             #if [[ ! -n "$e_pid" ]] ; then
                 ## TODO: remove in teh future: slownesses, or add noreports (warning inheritances)
@@ -342,17 +344,17 @@ watch_enlightenment_blocked(){
         #fi
 
         # check if process is correctly running
-        if kill -0 "$e_pid" 2>/dev/null ; then
+        if LC_ALL=C kill -0 "$e_pid" 2>/dev/null ; then
 
-            pong="$( timeout 10 enlightenment_remote -ping 2>/dev/null || true )"
+            pong="$( LC_ALL=C timeout 10 enlightenment_remote -ping 2>/dev/null || true )"
             if ! [[ "$pong" = *"pong" ]] ; then
-                sleep 2
+                LC_ALL=C sleep 2
 
-                pong="$( timeout 10 enlightenment_remote -ping 2>/dev/null || true )"
+                pong="$( LC_ALL=C timeout 10 enlightenment_remote -ping 2>/dev/null || true )"
                 if ! [[ "$pong" = *"pong" ]] ; then
-                    sleep 2
+                    LC_ALL=C sleep 3
 
-                    pong="$( timeout 10 enlightenment_remote -ping 2>/dev/null || true )"
+                    pong="$( LC_ALL=C timeout 10 enlightenment_remote -ping 2>/dev/null || true )"
                     if ! [[ "$pong" = *"pong" ]] ; then
                         # note: this could happen too if dbus is not running under E
                         restart_enlightenment
@@ -367,9 +369,9 @@ watch_enlightenment_blocked(){
             #fi
 
             # evalate if a check every X time
-            counter_logs_time_now="$( date +%s )"
+            counter_logs_time_now="$( LC_ALL=C date +%s )"
             if [[ "$counter_logs_time_now" -gt "$(( $counter_logs_time_last + $limit_logs_check ))" ]] ; then
-                counter_logs_time_last="$( date +%s )"
+                counter_logs_time_last="$( LC_ALL=C date +%s )"
 
                 if [[ "$( du -s "$HOME/.xsession-errors" | awk '{print $1}' )" -gt 20000 ]] ; then
                     #el_warning "cleaned xsession-errors file because has more than 20 MB"
@@ -378,10 +380,10 @@ watch_enlightenment_blocked(){
             fi
 
         else
-            # try to get a new pid, or restart E
-            e_pid="$(pidof enlightenment)"
-            if [[ ! -n "$e_pid" ]] || ! kill -0 "$e_pid" 2>/dev/null ; then
-                restart_enlightenment
+            # try to get a new pid
+            if [[ "$( LC_ALL=C pidof enlightenment_start)" ]] ; then
+                LC_ALL=C sleep 5
+                e_pid="$( LC_ALL=C pidof enlightenment)"
             fi
         fi
 
@@ -389,7 +391,22 @@ watch_enlightenment_blocked(){
         # check every:
         # FIXME: a low value eats resources, a big value will not run your X because process is already running... what we should do?
         # TODO: include a timer in the lockfile check with a max wait time based in these values (asigned from variables)
-        LC_ALL=C sleep 20
+        # FIXME: there's a problem with the pause, it can be bigger but everytime we exit from E we are stuck on this layer (and so the loop)
+
+        # fast checks that E is running (otherwise we are stuck on the wrapper until the full sleep finishes, and we don't want that when we exit E)
+        for count in "$( seq 15 )" ; do
+            if LC_ALL=C kill -0 "$e_pid" 1>/dev/null 2>&1 ; then
+                # pause per loop
+                LC_ALL=C sleep 1
+            else
+                # maybe E has restarted itself (own crash)
+                if [[ -n "$( LC_ALL=C pidof enlightenment_start)" ]] ; then
+                    e_pid="$( LC_ALL=C pidof enlightenment)"
+                else
+                    break 2
+                fi
+            fi
+        done
 
         # did we wanted to do a backup?
         if ((is_backup_wanted)) ; then
