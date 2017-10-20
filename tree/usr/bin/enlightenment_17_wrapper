@@ -46,18 +46,18 @@ fi
 # FIXME: if process is running do a while loop waiting (entire minute or equivalent) to see if finishes the previous process or exit)
 if (ps up $PROCCESS) 1>/dev/null 2>&1 ; then
     # kill possible previous wrappers? what if user has multiple sessions?
-    #kill -9 "$( ps ux | grep -v "$pid_wrapper" | grep -E "\s+$0$" | tail -1 )" 2>/dev/null || true
-    #kill -9 "$( ps ux | grep -v "$pid_wrapper" | grep -E "\s+$0$" | tail -1 )" 2>/dev/null || true
+    #kill -9 "$( ps ux | grep -v "$pid_wrapper" | grep -v grep | grep -E "\s+$0$" | tail -1 )" 2>/dev/null || true
+    #kill -9 "$( ps ux | grep -v "$pid_wrapper" | grep -v grep | grep -E "\s+$0$" | tail -1 )" 2>/dev/null || true
     # TODO: remove later this entry, since it can make the startup much slower!
-    el_error "$(basename $0) already running? forced exit needed? continuing... this should never happen\n$(ps aux | grep -v "$pid_wrapper" | grep -E "($0|$(readlink -f $0)|enlightenment)" )"
+    el_error "$(basename $0) already running? forced exit needed? continuing... this should never happen\n$(ps aux | grep -vE "($pid_wrapper|grep)" | grep -E "($0|$(readlink -f $0)|enlightenment)" )"
     #exit
     echo $$ > "$lockfile"
 else
     echo $$ > "$lockfile"
 fi
 # TODO: remove in the future:
-if ps aux | grep -v "$pid_wrapper" | grep -qsE "($0|$(readlink -f $0))" ; then
-    el_warning "$(basename $0) previously running? forced exit needed? continuing... this should never happen\n$(ps aux | grep -v "$pid_wrapper" | grep -E "($0|$(readlink -f $0))" )"
+if ps aux | grep -vE "($pid_wrapper|grep)" | grep -qsE "($0|$(readlink -f $0))" ; then
+    el_warning "$(basename $0) previously running? forced exit needed? continuing... this should never happen\n$(ps aux | grep -vE "($pid_wrapper|grep)" | grep -E "($0|$(readlink -f $0))" )"
 fi
 # set a new lockfile no matter what
 #echo $$ > "$lockfile"
@@ -133,8 +133,7 @@ send_debug_reports(){
 
 restart_desktop_configuration(){
     # elive-skel upgrade {{{
-    # TODO: ask if clean or last:
-    if zenity --question --text="$( eval_gettext "Do you want restore your desktop configuration from your last login instead of restart a new conf?" )" ; then
+    if [[ -d "$HOME/.e" ]] && zenity --question --text="$( eval_gettext "Do you want restore your desktop configuration from your last login instead of restart a new conf?" )" ; then
         cd "$HOME/.e"
         bkp get
         cd
@@ -372,10 +371,12 @@ watch_enlightenment_blocked(){
 
         # did we wanted to do a backup?
         if ((is_backup_wanted)) ; then
-            cd "$HOME/.e"
-            bkp remove
-            bkp save
-            cd
+            if [[ -d "$HOME/.e" ]] ; then
+                cd "$HOME/.e"
+                bkp remove
+                bkp save
+                cd
+            fi
             unset is_backup_wanted
         fi
 
