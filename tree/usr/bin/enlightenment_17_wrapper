@@ -6,7 +6,7 @@ TEXTDOMAIN="desktopwrapper"
 export TEXTDOMAIN
 
 # no need to enable since we have el_error & debug info
-#set -x
+set -x
 #_el_debug="$EL_DEBUG"
 #export EL_DEBUG=3
 #set -E # we should not use this or we will always get exit errors (
