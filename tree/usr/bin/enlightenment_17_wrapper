@@ -156,7 +156,7 @@ restart_desktop_configuration(){
     zenity --info --text="$( eval_gettext "Your desktop configuration has been restored, the old configuration is backuped in:" ) $HOME/.e.old"
 
     # - notify user }}}
-    el_warning "elive-skel upgrade .e - versions:\n$(dpkg -l | grep -E "^ii.*(libefl1|e17-stable|e17|elive-tools|deliver|elive-desktop)" | awk '{print $2" : "$3}' )"
+    #el_warning "elive-skel upgrade .e - versions:\n$(dpkg -l | grep -E "^ii.*(libefl1|e17-stable|e17|elive-tools|deliver|elive-desktop)" | awk '{print $2" : "$3}' )"
 }
 
 verify_desktop_health(){
