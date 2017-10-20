@@ -72,28 +72,6 @@ trap "exit_error" 1 3 5 6 14 15 ERR TERM
 
 # end lock system }}}
 
-# zenity wrapper to not block desktop
-zenity(){
-    local pong
-
-    #pong="$( timeout 3 enlightenment_remote -ping 2>/dev/null || true )"
-    #if [[ "$pong" = *"pong" ]] ; then
-    #if [[ -z "$DISPLAY" ]] || [[ -z "$XAUTHORITY" ]] ; then
-    if [[ -z "$DISPLAY" ]] ; then
-        if command zenity "$@" ; then
-            return 0
-        else
-            return 1
-        fi
-    else
-        # TODO: remove all the errors and warnings since can make the tool slower (nc)
-        #el_error "unable to run zenity wrapper because E doesn't pong"
-        el_error "unable to run zenity wrapper because we don't have access to X"
-        # asume always "yes", because we talk in positive
-        return 0
-    fi
-}
-
 
 send_debug_reports(){
     # send debug reports {{{
@@ -138,7 +116,7 @@ send_debug_reports(){
 
 restart_desktop_configuration(){
     # elive-skel upgrade {{{
-    if [[ -d "$HOME/.e" ]] && zenity --question --text="$( eval_gettext "Do you want restore your desktop configuration from your last login instead of restart a new conf?" )" ; then
+    if [[ -d "$HOME/.e" ]] && timeout 40 zenity --question --text="$( eval_gettext "Do you want restore your desktop configuration from your last login instead of restart a new conf?" )" ; then
         cd "$HOME/.e"
         bkp get
         cd
@@ -153,7 +131,7 @@ restart_desktop_configuration(){
     # notify user {{{
     el_speak_text "a-live desktop configuration upgraded"
 
-    zenity --info --text="$( eval_gettext "Your desktop configuration has been restored, the old configuration is backuped in:" ) $HOME/.e.old"
+    timeout 50 zenity --info --text="$( eval_gettext "Your desktop configuration has been restored, the old configuration is backuped in:" ) $HOME/.e.old"
 
     # - notify user }}}
     #el_warning "elive-skel upgrade .e - versions:\n$(dpkg -l | grep -E "^ii.*(libefl1|e17-stable|e17|elive-tools|deliver|elive-desktop)" | awk '{print $2" : "$3}' )"
@@ -165,7 +143,7 @@ verify_desktop_health(){
         # TODO: remove in the future
         el_speak_text "desktop restarted too much, suggested to start with a new configuration"
 
-        if zenity --question --text="$( eval_gettext "Your desktop seems to have recently crashed too much, do you want to restart a new configuration?" )" ; then
+        if timeout 40 zenity --question --text="$( eval_gettext "Your desktop seems to have recently crashed too much, do you want to restart a new configuration?" )" ; then
             restart_desktop_configuration
         fi
 
