@@ -118,12 +118,16 @@ trap "signal_died" HUP
 
 restart_desktop_configuration(){
     # elive-skel upgrade {{{
-    if [[ -d "$HOME/.e" ]] && timeout 40 zenity --question --text="$( eval_gettext "Do you want restore your desktop configuration from your last login instead of restart a new conf?" )" ; then
-        cd "$HOME/.e"
-        bkp get
-        cd
+    if grep -qs "boot=live" "/proc/cmdline" ; then
+        rm -r "$HOME/.e"
     else
-        elive-skel upgrade ".e"
+        if [[ -d "$HOME/.e" ]] && timeout 40 zenity --question --text="$( eval_gettext "Do you want restore your desktop configuration from your last login instead of restart a new conf?" )" ; then
+            cd "$HOME/.e"
+            bkp get
+            cd
+        else
+            elive-skel upgrade ".e"
+        fi
     fi
 
     # restart counter and variable
@@ -159,7 +163,7 @@ verify_desktop_health(){
         el_warning "E restarted fastly too much - versions:\n$(dpkg -l | grep -E "^ii.*(libefl1|e17-stable|e17|elive-tools|deliver|elive-desktop)" | awk '{print $2" : "$3}' )"
     else
         # always do a backup before to start, this will be run in the loop checker
-        if [[ -d "$HOME/.e" ]] && [[ "$( LC_ALL=C du -s "$HOME/.e" | awk '{print $1}' )" -gt 400 ]] ; then
+        if [[ -d "$HOME/.e" ]] && [[ "$( LC_ALL=C du -s "$HOME/.e" | awk '{print $1}' )" -gt 400 ]] && ! grep -qs "boot=live" "/proc/cmdline" ; then
             is_backup_wanted=1
         fi
     fi
@@ -456,11 +460,24 @@ watch_enlightenment_blocked(){
                 e_pid="$( LC_ALL=C pidof enlightenment )"
 
                 if [[ -n "$e_pid" ]] && LC_ALL=C kill -0 $e_pid 2>/dev/null ; then
-                    true
+
+                    # if we still in E, make sure that is really our E (not tested, but is the one that should give us access to our DBUS pong)
+                    for count in $( seq 20 ) ; do
+                        pong="$( LC_ALL=C timeout 5 enlightenment_remote -ping 2>/dev/null || true )"
+                        if [[ "$pong" = *"pong" ]] ; then
+                            # pong is ok
+                            break
+                        else
+                            LC_ALL=C sleep 2
+                        fi
+                    done
                 else
                     # E has finished, exit
                     break
                 fi
+            else
+                # E has finished, exit
+                break
             fi
         fi
 
