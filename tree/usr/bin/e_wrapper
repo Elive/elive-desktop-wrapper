@@ -9,8 +9,8 @@ export TEXTDOMAIN
 # TODO: test: what if we exit from one of these instances?
 
 # no need to enable since we have el_error & debug info
-#export NOREPORTS=1
-#set -x
+export NOREPORTS=1
+set -x
 #_el_debug="$EL_DEBUG"
 #export EL_DEBUG=3
 # we should not use this or we will always get exit errors ? no, we want to catch all the signals to correctly exit_error triggers
