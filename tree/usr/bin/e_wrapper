@@ -309,8 +309,8 @@ watch_enlightenment_blocked(){
                 # pong is ok
                 break
             else
-                if [[ -n "$( pidof enlightenment )" ]] || [[ -n "$( pidof enlightenment_start )" ]] ; then
-                    # we have at least one E running
+                if LC_ALL=C kill -0 $e_start_pid 2>/dev/null ; then
+                    # we have our E START still running
                     LC_ALL=C sleep 2
                 else
                     # no pong and no pid, E should have been closed
@@ -424,6 +424,7 @@ main(){
     TEXTDOMAIN="" \
         is_e_restarted_fast_too_much="" \
         enlightenment_start "$@" 2>&1 &
+    e_start_pid="$!"
 
         #enlightenment_start "$@" 2>&1 | tee "$HOME/.xsession-errors" &
     # wait that desktop finishes to start before to run checkers
