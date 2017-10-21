@@ -33,11 +33,6 @@ pid_wrapper="$$"
 # Lock system (modified for this tool) {{{
 
 exit_ok(){
-    # TODO: remove
-    #el_warning "normal exit from wrapper - e_pid is: $(ps ux | grep $e_pid | grep -v grep ) - e_start_pid is: $(ps ux | grep $e_start_pid | grep -v grep)"
-    kill -9 $e_pid 2>/dev/null || true
-    kill -9 $e_start_pid 2>/dev/null || true
-
     # TODO: when we come back from E to the wrapper, do we have any of these dirs?
     if ! [[ -d "/tmp/e-${USER}@1" ]] ; then
         killall ecomorph 1>/dev/null 2>&1 || killall -9 ecomorph 1>/dev/null 2>&1 || true
@@ -45,35 +40,12 @@ exit_ok(){
 }
 exit_error(){
     exit_status="$?"
-    # TODO: remove
-    #el_error "received signal $exit_status - e_pid is: $(ps ux | grep $e_pid | grep -v grep ) - e_start_pid is: $(ps ux | grep $e_start_pid | grep -v grep)"
-    el_error "${FUNCNAME} received signal $exit_status - E $e_pid - E_START $e_start_pid \n\nE instances:\n$(ps ux | grep -vE "(grep)" | grep enlightenment)"
 
-    #kill -9 $e_pid 2>/dev/null || true
-    #kill -9 $e_start_pid 2>/dev/null || true
-    ##el_error "exit error '${exit_status}' trap triggered from $(basename $0) - ${FUNCNAME[@]}"
+    el_warning "${FUNCNAME} received signal $exit_status \n\nE instances:\n$(ps ux | grep -vE "(grep)" | grep enlightenment)"
+
     unset exit_status
     exit 0
 }
-# not needed: we should not check for E, if we have exited we have exited
-#signal_died(){
-    #exit_status="$?"
-
-    #el_error "${FUNCNAME} received signal $exit_status - E $e_pid - E_START $e_start_pid \n\nE instances:\n$(ps ux | grep -vE "(grep)" | grep enlightenment)"
-
-    #if ! [[ -n "$( pidof enlightenment )" ]] && ! [[ -n "$( pidof enlightenment_start )" ]] ; then
-        #exit
-    #else
-        #e_pid="$( LC_ALL=C pidof enlightenment )"
-    #fi
-
-    #if [[ -n "$e_pid" ]] ; then
-        #if ! LC_ALL=C kill -0 $e_pid 2>/dev/null ; then
-            #exit
-        #fi
-    #fi
-    #unset exit_status
-#}
 
 # traps needs to be after the lock verification, in order to not remove it when we are already running
 trap "exit_ok" EXIT
@@ -297,22 +269,6 @@ restart_enlightenment(){
         LC_ALL=C sleep 20
         notify-send -t 60000 "Enlightnement Restarted" "$( eval_gettext "Elive detected a failure and recovered your desktop saving your working windows. If you want to report an issue to Elive so we can fix it, please describe what you were going before the recovery." )" &
 
-        # get new pid if changed {{{
-        if ((is_e_restarted)) ; then
-
-            for count in $( seq 10 ) ; do
-                e_pid="$( LC_ALL=C pidof enlightenment )"
-
-                if [[ -n "$e_pid" ]] ; then
-                    break
-                else
-                    LC_ALL=C sleep 1
-                fi
-            done
-        fi
-
-        # }}}
-
         # see if we restarted too much, if so, it will be asked to recover configuration in the next startx
         crashes_watcher
 
@@ -332,16 +288,6 @@ watch_enlightenment_blocked(){
 
     # wait for things initiated {{{
     for count in $( seq 60 ) ; do
-        e_pid="$( LC_ALL=C pidof enlightenment )"
-
-        if [[ -n "$e_pid" ]] ; then
-            break
-        else
-            LC_ALL=C sleep 2
-        fi
-    done
-
-    for count in $( seq 60 ) ; do
         pong="$( LC_ALL=C timeout 5 enlightenment_remote -ping 2>/dev/null || true )"
         if [[ "$pong" = *"pong" ]] ; then
             break
@@ -351,126 +297,37 @@ watch_enlightenment_blocked(){
     done
 
     # }}}
-    # if we don't have pidof, enlightenment_start has finished so the loop ends and we exit from the script
-    #while [[ -O "/proc/${e_pid}/cmdline" ]]
-    #while kill -0 "$e_pid" 2>/dev/null
-    # update: pid can be changed if E crashes itself, so dont use it
     while true
     do
-        # get actual pid
-        #e_pid="$( LC_ALL=C pidof enlightenment)"
         unset pong
 
-        # if there's no pid, E has finished, so let's exit, and do not try to get a new one first
-        if [[ ! -n "$e_pid" ]] ; then
-            break
-        fi
-        #if [[ ! -n "$e_pid" ]] || ! kill -0 "$e_pid" 2>/dev/null ; then
-            ## if E not answer, try again and if not, exit
-            #sleep 2
-            #e_pid="$( LC_ALL=C pidof enlightenment)"
-
-            #if [[ ! -n "$e_pid" ]] ; then
-                ## TODO: remove in teh future: slownesses, or add noreports (warning inheritances)
-                ##el_warning "unable to get pidof of E, so if E has been finished/closed we should exit this tool"
-                #break
-            #fi
-        #fi
-
-        # check if process is correctly running
-        if [[ -n "$e_pid" ]] && LC_ALL=C kill -0 $e_pid 2>/dev/null ; then
-
-            # note: if E is running with a slow process, it can feel blocked too (like programmers-kb-layout-switch)
-            # max time to see if E is not blocked: 40 seconds, we should not have anything pausing E for more than this time
-            for count in $( seq 20 ) ; do
-                pong="$( LC_ALL=C timeout 5 enlightenment_remote -ping 2>/dev/null || true )"
-                if [[ "$pong" = *"pong" ]] ; then
-                    # pong is ok
-                    break
-                else
-                    if [[ -n "$e_pid" ]] && LC_ALL=C kill -0 $e_pid 2>/dev/null ; then
-                        # try again, so we have the pid running
-                        LC_ALL=C sleep 2
-                    else
-                        # no pong and no pid, E should have been closed
-                        break 2
-                    fi
-                fi
-            done
-            # if we didn't had a pong in our max amount of attemps, restart
-            if ! [[ "$pong" = *"pong" ]] ; then
-                # note: this could happen too if dbus is not running under E
-                restart_enlightenment
-            fi
-
-            #all good, don't bottleneck per loop
-            LC_ALL=C sleep 4
-
-            # save if we are using a different profile
-            #E_CONF_PROFILE="$( enlightenment_remote -default-profile-get )"
-            #if [[ "$E_CONF_PROFILE" != "standard" ]] ; then
-            #el_config_save "E_CONF_PROFILE"
-            #fi
-
-            # evalate if a check every X time
-            # TODO: keep this disabled and remove all the code if we don't use xsession-errors (we cannot use the "tee" or it will block)
-            #counter_logs_time_now="$( LC_ALL=C date +%s )"
-            #if [[ "$counter_logs_time_now" -gt "$(( $counter_logs_time_last + $limit_logs_check ))" ]] ; then
-                #counter_logs_time_last="$( LC_ALL=C date +%s )"
-
-                #if [[ "$( du -s "$HOME/.xsession-errors" | awk '{print $1}' )" -gt 20000 ]] ; then
-                    ##el_warning "cleaned xsession-errors file because has more than 20 MB"
-                    #: > "$HOME/.xsession-errors"
-                #fi
-            #fi
-
-        else
-            # try to get a new pid
-            if [[ -n "$( LC_ALL=C pidof enlightenment_start )" ]] ; then
-                LC_ALL=C sleep 5
-                e_pid="$( LC_ALL=C pidof enlightenment )"
-
-                if [[ -n "$e_pid" ]] && LC_ALL=C kill -0 $e_pid 2>/dev/null ; then
-
-                    # if we still in E, make sure that is really our E (not tested, but is the one that should give us access to our DBUS pong)
-                    for count in $( seq 20 ) ; do
-                        pong="$( LC_ALL=C timeout 5 enlightenment_remote -ping 2>/dev/null || true )"
-                        if [[ "$pong" = *"pong" ]] ; then
-                            # pong is ok
-                            break
-                        else
-                            LC_ALL=C sleep 2
-                        fi
-                    done
-                else
-                    # E has finished, exit
-                    break
-                fi
-            else
-                # E has finished, exit
+        # note: if E is running with a slow process, it can feel blocked too (like programmers-kb-layout-switch)
+        # max time to see if E is not blocked: 40 seconds, we should not have anything pausing E for more than this time
+        for count in $( seq 20 ) ; do
+            pong="$( LC_ALL=C timeout 5 enlightenment_remote -ping 2>/dev/null || true )"
+            if [[ "$pong" = *"pong" ]] ; then
+                # pong is ok
                 break
+            else
+                if [[ -n "$( pidof enlightenment )" ]] || [[ -n "$( pidof enlightenment_start )" ]] ; then
+                    # we have at least one E running
+                    LC_ALL=C sleep 2
+                else
+                    # no pong and no pid, E should have been closed
+                    break 2
+                fi
             fi
+        done
+
+        # if we didn't had a pong in our max amount of attemps, restart
+        if ! [[ "$pong" = *"pong" ]] ; then
+            # note: this could happen too if dbus is not running under E
+            restart_enlightenment
         fi
 
+        #all good, don't bottleneck per loop
+        LC_ALL=C sleep 4
 
-        # check every:
-        # FIXME: a low value eats resources, a big value will not run your X because process is already running... what we should do?
-        # FIXME: there's a problem with the pause, it can be bigger but everytime we exit from E we are stuck on this layer (and so the loop)
-
-        # fast checks that E is running (otherwise we are stuck on the wrapper until the full sleep finishes, and we don't want that when we exit E)
-        #for count in $( seq 8 ) ; do
-            #if LC_ALL=C kill -0 $e_pid 1>/dev/null 2>&1 ; then
-                ## pause per loop
-                #LC_ALL=C sleep 2
-            #else
-                ## maybe E has restarted itself (own crash)
-                #if [[ -n "$( LC_ALL=C pidof enlightenment_start )" ]] ; then
-                    #e_pid="$( LC_ALL=C pidof enlightenment )"
-                #else
-                    #break 2
-                #fi
-            #fi
-        #done
 
         # did we wanted to do a backup?
         if ((is_backup_wanted)) ; then
@@ -482,9 +339,9 @@ watch_enlightenment_blocked(){
                 enlightenment_remote -save
 
                 cd "$HOME/.e"
-                bkp remove
+                bkp remove 1>/dev/null 2>&1
                 sync
-                bkp save
+                bkp save 1>/dev/null 2>&1
                 cd
             fi
         fi
@@ -567,7 +424,6 @@ main(){
     TEXTDOMAIN="" \
         is_e_restarted_fast_too_much="" \
         enlightenment_start "$@" 2>&1 &
-    e_start_pid="$!"
 
         #enlightenment_start "$@" 2>&1 | tee "$HOME/.xsession-errors" &
     # wait that desktop finishes to start before to run checkers
