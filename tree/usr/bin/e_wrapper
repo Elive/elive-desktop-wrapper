@@ -30,6 +30,7 @@ lockfile="/tmp/.$(basename $0)-${USER}.lock"
 
 exit_ok(){
     rm -f "$lockfile"
+    # TODO: remove
     el_warning "normal exit from wrapper - e_pid is: $(ps ux | grep $e_pid | grep -v grep ) - e_start_pid is: $(ps ux | grep $e_start_pid | grep -v grep)"
     kill -9 "$e_pid" 2>/dev/null || true
     kill -9 "$e_start_pid" 2>/dev/null || true
@@ -41,6 +42,7 @@ exit_ok(){
 }
 exit_error(){
     exit_pid="$!"
+    # TODO: remove
     el_error "received signal $exit_pid - e_pid is: $(ps ux | grep $e_pid | grep -v grep ) - e_start_pid is: $(ps ux | grep $e_start_pid | grep -v grep)"
 
     #rm -f "$lockfile"
@@ -516,10 +518,10 @@ main(){
     # NOTE: do not use "tee", it will block the exit/logout of E
     TEXTDOMAIN="" \
         is_e_restarted_fast_too_much="" \
-        enlightenment_start "$@" 2>&1 | tee "$HOME/.xsession-errors" &
+        enlightenment_start "$@" 2>&1 &
     e_start_pid="$!"
 
-        #enlightenment_start "$@" 2>&1 &
+        enlightenment_start "$@" 2>&1 | tee "$HOME/.xsession-errors" &
         #enlightenment_start "$@" 2>&1 | tee "$HOME/.xsession-errors" &
     # wait that desktop finishes to start before to run checkers
     sleep 10
