@@ -9,8 +9,8 @@ export TEXTDOMAIN
 # TODO: test: what if we exit from one of these instances?
 
 # no need to enable since we have el_error & debug info
-export NOREPORTS=1
-set -x
+#export NOREPORTS=1
+#set -x
 #_el_debug="$EL_DEBUG"
 #export EL_DEBUG=3
 # we should not use this or we will always get exit errors ? no, we want to catch all the signals to correctly exit_error triggers
@@ -31,10 +31,8 @@ pid_wrapper="$$"
 # FIXME: review all the process from the start to the launch of E and see bottlenecks, specially calling el_error's and others
 
 # Lock system (modified for this tool) {{{
-lockfile="/tmp/.$(basename $0)-${USER}.lock"
 
 exit_ok(){
-    rm -f "$lockfile"
     # TODO: remove
     #el_warning "normal exit from wrapper - e_pid is: $(ps ux | grep $e_pid | grep -v grep ) - e_start_pid is: $(ps ux | grep $e_start_pid | grep -v grep)"
     kill -9 $e_pid 2>/dev/null || true
@@ -51,7 +49,6 @@ exit_error(){
     #el_error "received signal $exit_status - e_pid is: $(ps ux | grep $e_pid | grep -v grep ) - e_start_pid is: $(ps ux | grep $e_start_pid | grep -v grep)"
     el_error "${FUNCNAME} received signal $exit_status - E $e_pid - E_START $e_start_pid \n\nE instances:\n$(ps ux | grep -vE "(grep)" | grep enlightenment)"
 
-    #rm -f "$lockfile"
     #kill -9 $e_pid 2>/dev/null || true
     #kill -9 $e_start_pid 2>/dev/null || true
     ##el_error "exit error '${exit_status}' trap triggered from $(basename $0) - ${FUNCNAME[@]}"
@@ -77,34 +74,6 @@ exit_error(){
     #fi
     #unset exit_status
 #}
-
-if [[ -r "$lockfile" ]] ; then
-    PROCCESS="$(cat $lockfile)"
-else
-    PROCCESS=" "
-fi
-# FIXME: if process is running do a while loop waiting (entire minute or equivalent) to see if finishes the previous process or exit)
-if (ps up $PROCCESS) 1>/dev/null 2>&1 ; then
-    # TODO: kill possible previous wrappers? but ignore if we have already a session opened, we should not need this, so wait to see if we receive any error and if so, implement this part
-    if ! [[ -d "/tmp/e-${USER}@0" ]] && ! [[ -d "/tmp/e-${USER}@1" ]] ; then
-        kill -9 "$( ps ux | grep -vE "($pid_wrapper|grep|xinit|startx|lightdm|vi |vim )" | grep -E "\s+$( readlink -f "$0")$" | awk '{print $2}' | tail -1 )" 2>/dev/null || true
-        kill -9 "$( ps ux | grep -vE "($pid_wrapper|grep|xinit|startx|lightdm|vi |vim )" | grep -E "\s+$( readlink -f "$0")$" | awk '{print $2}' | tail -1 )" 2>/dev/null || true
-        kill -9 "$( ps ux | grep -vE "($pid_wrapper|grep|xinit|startx|lightdm|vi |vim )" | grep -E "\s+$( readlink -f "$0")$" | awk '{print $2}' | tail -1 )" 2>/dev/null || true
-    fi
-    # TODO: remove later this entry, since it can make the startup much slower!
-    el_error "$(basename $0) already running? forced exit needed? continuing... this should never happen\n$(ps aux | grep -vE "($pid_wrapper|grep|xinit|startx|lightdm)" | grep -E "($0|$(readlink -f $0)|enlightenment)" )"
-    #exit
-    echo $$ > "$lockfile"
-else
-    echo $$ > "$lockfile"
-fi
-# TODO: remove in the future:
-if ps aux | grep -vE "($pid_wrapper|grep|xinit|startx|lightdm|vi |vim )" | grep -qsE "($0|$(readlink -f $0))" ; then
-    el_warning "$(basename $0) previously running? forced exit needed? continuing... this should never happen\n$(ps aux | grep -vE "($pid_wrapper|grep|xinit|startx|lightdm|vi |vim )" | grep -E "($0|$(readlink -f $0))" )"
-fi
-# set a new lockfile no matter what
-#echo $$ > "$lockfile"
-
 
 # traps needs to be after the lock verification, in order to not remove it when we are already running
 trap "exit_ok" EXIT
@@ -486,7 +455,6 @@ watch_enlightenment_blocked(){
 
         # check every:
         # FIXME: a low value eats resources, a big value will not run your X because process is already running... what we should do?
-        # TODO: include a timer in the lockfile check with a max wait time based in these values (asigned from variables)
         # FIXME: there's a problem with the pause, it can be bigger but everytime we exit from E we are stuck on this layer (and so the loop)
 
         # fast checks that E is running (otherwise we are stuck on the wrapper until the full sleep finishes, and we don't want that when we exit E)
