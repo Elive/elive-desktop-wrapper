@@ -296,13 +296,13 @@ restart_enlightenment(){
         el_speak_text "ai-live desktop initiated recovery"
 
         LC_ALL=C sleep 20
-        notify-send -t 20000 "Enlightnement Restarted" "$( eval_gettext "Elive detected a failure and recovered your desktop saving your working windows" )" &
+        notify-send -t 20000 "Enlightnement Restarted" "$( eval_gettext "Elive detected a failure and recovered your desktop saving your working windows. If you want to report an issue to Elive so we can fix it, please describe what you were going before the recovery." )" &
 
         # get new pid if changed {{{
         if ((is_e_restarted)) ; then
 
             for count in $( seq 10 ) ; do
-                e_pid="$( LC_ALL=C pidof enlightenment)"
+                e_pid="$( LC_ALL=C pidof enlightenment | awk '{print $1}' )"
 
                 if [[ -n "$e_pid" ]] ; then
                     break
@@ -333,7 +333,7 @@ watch_enlightenment_blocked(){
 
     # wait for things initiated {{{
     for count in $( seq 240 ) ; do
-        e_pid="$( LC_ALL=C pidof enlightenment )"
+        e_pid="$( LC_ALL=C pidof enlightenment | awk '{print $1}' )"
 
         if [[ -n "$e_pid" ]] ; then
             break
@@ -382,8 +382,8 @@ watch_enlightenment_blocked(){
         if LC_ALL=C kill -0 "$e_pid" 2>/dev/null ; then
 
             # note: if E is running with a slow process, it can feel blocked too (like programmers-kb-layout-switch)
-            # max time to see if E is not blocked: 1/2 minute
-            for count in $( seq 15 ) ; do
+            # max time to see if E is not blocked: 40 seconds, we should not have anything pausing E for more than this time
+            for count in $( seq 20 ) ; do
                 pong="$( LC_ALL=C timeout 5 enlightenment_remote -ping 2>/dev/null || true )"
                 if [[ "$pong" = *"pong" ]] ; then
                     # pong is ok
@@ -427,9 +427,9 @@ watch_enlightenment_blocked(){
 
         else
             # try to get a new pid
-            if [[ "$( LC_ALL=C pidof enlightenment_start)" ]] ; then
+            if [[ -n "$( LC_ALL=C pidof enlightenment_start | awk '{print $1}' )" ]] ; then
                 LC_ALL=C sleep 5
-                e_pid="$( LC_ALL=C pidof enlightenment)"
+                e_pid="$( LC_ALL=C pidof enlightenment | awk '{print $1}' )"
             fi
         fi
 
