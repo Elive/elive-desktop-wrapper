@@ -9,8 +9,8 @@ export TEXTDOMAIN
 # TODO: test: what if we exit from one of these instances?
 
 # no need to enable since we have el_error & debug info
-#export NOREPORTS=1
-#set -x
+export NOREPORTS=1
+set -x
 #_el_debug="$EL_DEBUG"
 #export EL_DEBUG=3
 # we should not use this or we will always get exit errors ? no, we want to catch all the signals to correctly exit_error triggers
@@ -334,22 +334,22 @@ watch_enlightenment_blocked(){
     local pong count
 
     # wait for things initiated {{{
-    for count in $( seq 240 ) ; do
+    for count in $( seq 60 ) ; do
         e_pid="$( LC_ALL=C pidof enlightenment )"
 
         if [[ -n "$e_pid" ]] ; then
             break
         else
-            LC_ALL=C sleep 1
+            LC_ALL=C sleep 2
         fi
     done
 
-    for count in $( seq 240 ) ; do
+    for count in $( seq 60 ) ; do
         pong="$( LC_ALL=C timeout 5 enlightenment_remote -ping 2>/dev/null || true )"
         if [[ "$pong" = *"pong" ]] ; then
             break
         else
-            LC_ALL=C sleep 1
+            LC_ALL=C sleep 2
         fi
     done
 
@@ -381,7 +381,7 @@ watch_enlightenment_blocked(){
         #fi
 
         # check if process is correctly running
-        if LC_ALL=C kill -0 $e_pid 2>/dev/null ; then
+        if [[ -n "$e_pid" ]] && LC_ALL=C kill -0 $e_pid 2>/dev/null ; then
 
             # note: if E is running with a slow process, it can feel blocked too (like programmers-kb-layout-switch)
             # max time to see if E is not blocked: 40 seconds, we should not have anything pausing E for more than this time
@@ -391,7 +391,7 @@ watch_enlightenment_blocked(){
                     # pong is ok
                     break
                 else
-                    if LC_ALL=C kill -0 $e_pid 2>/dev/null ; then
+                    if [[ -n "$e_pid" ]] && LC_ALL=C kill -0 $e_pid 2>/dev/null ; then
                         # try again, so we have the pid running
                         LC_ALL=C sleep 2
                     else
@@ -432,6 +432,13 @@ watch_enlightenment_blocked(){
             if [[ -n "$( LC_ALL=C pidof enlightenment_start )" ]] ; then
                 LC_ALL=C sleep 5
                 e_pid="$( LC_ALL=C pidof enlightenment )"
+
+                if [[ -n "$e_pid" ]] && LC_ALL=C kill -0 $e_pid 2>/dev/null ; then
+                    true
+                else
+                    # E has finished, exit
+                    break
+                fi
             fi
         fi
 
@@ -548,7 +555,6 @@ main(){
         enlightenment_start "$@" 2>&1 &
     e_start_pid="$!"
 
-        enlightenment_start "$@" 2>&1 | tee "$HOME/.xsession-errors" &
         #enlightenment_start "$@" 2>&1 | tee "$HOME/.xsession-errors" &
     # wait that desktop finishes to start before to run checkers
     sleep 10
@@ -559,11 +565,8 @@ main(){
     # watcher checks the pid so this should always finish correctly, but we need to wait for E to close
     wait
 
-    # close things when exiting E
-    #if ! [[ -d "/tmp/e-${USER}@0" ]] && ! [[ -d "/tmp/e-${USER}@1" ]] ; then
-
-    # cleanup
-    rm -f "$lockfile"
+    # trigger correctly the exit callbacks
+    exit 0
 }
 
 #
