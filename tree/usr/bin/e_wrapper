@@ -6,7 +6,8 @@ TEXTDOMAIN="desktopwrapper"
 export TEXTDOMAIN
 
 # no need to enable since we have el_error & debug info
-#set -x
+export NOREPORTS=1
+set -x
 #_el_debug="$EL_DEBUG"
 #export EL_DEBUG=3
 # we should not use this or we will always get exit errors ? no, we want to catch all the signals to correctly exit_error triggers
@@ -114,6 +115,10 @@ restart_desktop_configuration(){
 
 verify_desktop_health(){
     # E seems like to be unusable due to too much crashes {{{
+    if ! [[ -d "$HOME/.e" ]] ; then
+        return
+    fi
+
     if ((is_e_restarted_fast_too_much)) ; then
         # TODO: remove in the future
         el_speak_text "desktop restarted too much, suggested to start with a new configuration"
@@ -326,8 +331,7 @@ watch_enlightenment_blocked(){
     local pong count
 
     # wait for things initiated {{{
-    while true
-    do
+    for count in $( seq 240 ) ; do
         e_pid="$( LC_ALL=C pidof enlightenment )"
 
         if [[ -n "$e_pid" ]] ; then
@@ -337,8 +341,7 @@ watch_enlightenment_blocked(){
         fi
     done
 
-    while true
-    do
+    for count in $( seq 240 ) ; do
         pong="$( LC_ALL=C timeout 5 enlightenment_remote -ping 2>/dev/null || true )"
         if [[ "$pong" = *"pong" ]] ; then
             break
@@ -378,12 +381,13 @@ watch_enlightenment_blocked(){
         if LC_ALL=C kill -0 "$e_pid" 2>/dev/null ; then
 
             # note: if E is running with a slow process, it can feel blocked too (like programmers-kb-layout-switch)
-            for count in $( seq 12 ) ; do
+            # max time to see if E is not blocked: 1/2 minute
+            for count in $( seq 15 ) ; do
                 pong="$( LC_ALL=C timeout 5 enlightenment_remote -ping 2>/dev/null || true )"
                 if [[ "$pong" = *"pong" ]] ; then
                     break
                 else
-                    LC_ALL=C sleep 1
+                    LC_ALL=C sleep 2
                 fi
             done
             # if we didn't had a pong in our max amount of attemps, restart
@@ -428,19 +432,19 @@ watch_enlightenment_blocked(){
         # FIXME: there's a problem with the pause, it can be bigger but everytime we exit from E we are stuck on this layer (and so the loop)
 
         # fast checks that E is running (otherwise we are stuck on the wrapper until the full sleep finishes, and we don't want that when we exit E)
-        for count in $( seq 8 ) ; do
-            if LC_ALL=C kill -0 "$e_pid" 1>/dev/null 2>&1 ; then
-                # pause per loop
-                LC_ALL=C sleep 2
-            else
-                # maybe E has restarted itself (own crash)
-                if [[ -n "$( LC_ALL=C pidof enlightenment_start )" ]] ; then
-                    e_pid="$( LC_ALL=C pidof enlightenment )"
-                else
-                    break 2
-                fi
-            fi
-        done
+        #for count in $( seq 8 ) ; do
+            #if LC_ALL=C kill -0 "$e_pid" 1>/dev/null 2>&1 ; then
+                ## pause per loop
+                #LC_ALL=C sleep 2
+            #else
+                ## maybe E has restarted itself (own crash)
+                #if [[ -n "$( LC_ALL=C pidof enlightenment_start )" ]] ; then
+                    #e_pid="$( LC_ALL=C pidof enlightenment )"
+                #else
+                    #break 2
+                #fi
+            #fi
+        #done
 
         # did we wanted to do a backup?
         if ((is_backup_wanted)) ; then
