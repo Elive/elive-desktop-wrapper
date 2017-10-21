@@ -48,7 +48,7 @@ exit_error(){
     exit_pid="$!"
     # TODO: remove
     #el_error "received signal $exit_pid - e_pid is: $(ps ux | grep $e_pid | grep -v grep ) - e_start_pid is: $(ps ux | grep $e_start_pid | grep -v grep)"
-    el_error "received signal $exit_pid - E $e_pid - E_START $e_start_pid \n$(ps ux | grep -vE "(grep)" | grep enlightenment)"
+    el_error "received signal $exit_pid - E $e_pid - E_START $e_start_pid \n\nsignal:\n$(ps ux | grep -vE "(grep)" | grep "$exit_pid" )\n\nE instances:\n$(ps ux | grep -vE "(grep)" | grep enlightenment)"
 
     #rm -f "$lockfile"
     #kill -9 $e_pid 2>/dev/null || true
