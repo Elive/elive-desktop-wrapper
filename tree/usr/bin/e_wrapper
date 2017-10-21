@@ -5,7 +5,7 @@ source /usr/lib/elive-tools/functions
 TEXTDOMAIN="desktopwrapper"
 export TEXTDOMAIN
 
-# Note: this tool has no way to determine which E instance are you running (in case that you are running multiple instances, which is not something very common at all), but in the worst case it will reload E if both are blocked, and also it will recover both of them
+# Note: this tool has no way to determine which E instance are you running (in case that you are running multiple instances, which is not something very common at all), but it will work with all of them at the same time (managing multiple pid's at the same time), so if one of them fails, it will restart all the E instances
 # TODO: test: what if we exit from one of these instances?
 
 # no need to enable since we have el_error & debug info
@@ -36,8 +36,8 @@ exit_ok(){
     rm -f "$lockfile"
     # TODO: remove
     #el_warning "normal exit from wrapper - e_pid is: $(ps ux | grep $e_pid | grep -v grep ) - e_start_pid is: $(ps ux | grep $e_start_pid | grep -v grep)"
-    kill -9 "$e_pid" 2>/dev/null || true
-    kill -9 "$e_start_pid" 2>/dev/null || true
+    kill -9 $e_pid 2>/dev/null || true
+    kill -9 $e_start_pid 2>/dev/null || true
 
     # TODO: when we come back from E to the wrapper, do we have any of these dirs?
     if ! [[ -d "/tmp/e-${USER}@1" ]] ; then
@@ -51,8 +51,8 @@ exit_error(){
     el_error "received signal $exit_pid - E $e_pid - E_START $e_start_pid \n$(ps ux | grep -vE "(grep)" | grep enlightenment)"
 
     #rm -f "$lockfile"
-    #kill -9 "$e_pid" 2>/dev/null || true
-    #kill -9 "$e_start_pid" 2>/dev/null || true
+    #kill -9 $e_pid 2>/dev/null || true
+    #kill -9 $e_start_pid 2>/dev/null || true
     ##el_error "exit error '${exit_pid}' trap triggered from $(basename $0) - ${FUNCNAME[@]}"
     unset exit_pid
 }
@@ -304,7 +304,7 @@ restart_enlightenment(){
         if ((is_e_restarted)) ; then
 
             for count in $( seq 10 ) ; do
-                e_pid="$( LC_ALL=C pidof enlightenment | awk '{print $1}' )"
+                e_pid="$( LC_ALL=C pidof enlightenment )"
 
                 if [[ -n "$e_pid" ]] ; then
                     break
@@ -335,7 +335,7 @@ watch_enlightenment_blocked(){
 
     # wait for things initiated {{{
     for count in $( seq 240 ) ; do
-        e_pid="$( LC_ALL=C pidof enlightenment | awk '{print $1}' )"
+        e_pid="$( LC_ALL=C pidof enlightenment )"
 
         if [[ -n "$e_pid" ]] ; then
             break
@@ -381,7 +381,7 @@ watch_enlightenment_blocked(){
         #fi
 
         # check if process is correctly running
-        if LC_ALL=C kill -0 "$e_pid" 2>/dev/null ; then
+        if LC_ALL=C kill -0 $e_pid 2>/dev/null ; then
 
             # note: if E is running with a slow process, it can feel blocked too (like programmers-kb-layout-switch)
             # max time to see if E is not blocked: 40 seconds, we should not have anything pausing E for more than this time
@@ -391,7 +391,7 @@ watch_enlightenment_blocked(){
                     # pong is ok
                     break
                 else
-                    if LC_ALL=C kill -0 "$e_pid" 2>/dev/null ; then
+                    if LC_ALL=C kill -0 $e_pid 2>/dev/null ; then
                         # try again, so we have the pid running
                         LC_ALL=C sleep 2
                     else
@@ -429,9 +429,9 @@ watch_enlightenment_blocked(){
 
         else
             # try to get a new pid
-            if [[ -n "$( LC_ALL=C pidof enlightenment_start | awk '{print $1}' )" ]] ; then
+            if [[ -n "$( LC_ALL=C pidof enlightenment_start )" ]] ; then
                 LC_ALL=C sleep 5
-                e_pid="$( LC_ALL=C pidof enlightenment | awk '{print $1}' )"
+                e_pid="$( LC_ALL=C pidof enlightenment )"
             fi
         fi
 
@@ -443,7 +443,7 @@ watch_enlightenment_blocked(){
 
         # fast checks that E is running (otherwise we are stuck on the wrapper until the full sleep finishes, and we don't want that when we exit E)
         #for count in $( seq 8 ) ; do
-            #if LC_ALL=C kill -0 "$e_pid" 1>/dev/null 2>&1 ; then
+            #if LC_ALL=C kill -0 $e_pid 1>/dev/null 2>&1 ; then
                 ## pause per loop
                 #LC_ALL=C sleep 2
             #else
