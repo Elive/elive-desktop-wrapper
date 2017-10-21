@@ -6,6 +6,7 @@ TEXTDOMAIN="desktopwrapper"
 export TEXTDOMAIN
 
 # no need to enable since we have el_error & debug info
+# FIXME:
 export NOREPORTS=1
 set -x
 #_el_debug="$EL_DEBUG"
@@ -385,9 +386,16 @@ watch_enlightenment_blocked(){
             for count in $( seq 15 ) ; do
                 pong="$( LC_ALL=C timeout 5 enlightenment_remote -ping 2>/dev/null || true )"
                 if [[ "$pong" = *"pong" ]] ; then
+                    # pong is ok
                     break
                 else
-                    LC_ALL=C sleep 2
+                    if LC_ALL=C kill -0 "$e_pid" 2>/dev/null ; then
+                        # try again, so we have the pid running
+                        LC_ALL=C sleep 2
+                    else
+                        # no pong and no pid, E should have been closed
+                        break 2
+                    fi
                 fi
             done
             # if we didn't had a pong in our max amount of attemps, restart
