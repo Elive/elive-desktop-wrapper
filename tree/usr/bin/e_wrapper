@@ -5,17 +5,14 @@ source /usr/lib/elive-tools/functions
 TEXTDOMAIN="desktopwrapper"
 export TEXTDOMAIN
 
-# Note: this tool has no way to determine which E instance are you running (in case that you are running multiple instances, which is not something very common at all), but it will work with all of them at the same time (managing multiple pid's at the same time), so if one of them fails, it will restart all the E instances
-# TODO: test: what if we exit from one of these instances?
-
 # no need to enable since we have el_error & debug info
-export NOREPORTS=1
-set -x
+#export NOREPORTS=1
+#set -x
 #_el_debug="$EL_DEBUG"
 #export EL_DEBUG=3
 # we should not use this or we will always get exit errors ? no, we want to catch all the signals to correctly exit_error triggers
-# TODO: remove, seems like we don't need it at all, HUP signal is catched without it
-set -E
+# seems like we don't need it at all, HUP signal is catched without it
+#set -E
 
 counter_crash_amount=0
 counter_crash_fast_amount=0
@@ -26,21 +23,16 @@ limit_logs_check="$(( 2 * 60 * 60 ))" # two hours
 
 counter_logs_time_last="$( date +%s )"
 pid_wrapper="$$"
-# unused, don't enable it
-#E_CONF_PROFILE="standard"
-# FIXME: review all the process from the start to the launch of E and see bottlenecks, specially calling el_error's and others
-
-# Lock system (modified for this tool) {{{
 
 exit_ok(){
-    # TODO: when we come back from E to the wrapper, do we have any of these dirs?
-    if ! [[ -d "/tmp/e-${USER}@1" ]] ; then
+    if ! [[ -d "/tmp/e-${USER}@0" ]] && ! [[ -d "/tmp/e-${USER}@1" ]] ; then
         killall ecomorph 1>/dev/null 2>&1 || killall -9 ecomorph 1>/dev/null 2>&1 || true
     fi
 }
 exit_error(){
     exit_status="$?"
 
+    # TODO: remove
     el_warning "${FUNCNAME} received signal $exit_status \n\nE instances:\n$(ps ux | grep -vE "(grep)" | grep enlightenment)"
 
     unset exit_status
@@ -49,14 +41,8 @@ exit_error(){
 
 # traps needs to be after the lock verification, in order to not remove it when we are already running
 trap "exit_ok" EXIT
-#trap "exit_error" 1 3 5 6 14 15 ERR TERM # ERR trap not works nicely with set -E
-# notes: signal 1 is received to E if I ^C in the terminal where running startx /usr/bin/e_wrapper
 trap "exit_error" 3 5 6 14 15 TERM HUP
-# SIGHUP is signal 129, so ^C
-#trap "signal_died" HUP
 
-
-# end lock system }}}
 
 
 restart_desktop_configuration(){
@@ -78,7 +64,9 @@ restart_desktop_configuration(){
     el_config_save "is_e_restarted_fast_too_much"
     # - elive-skel upgrade }}}
     # notify user {{{
-    el_speak_text "a-live desktop configuration upgraded"
+    if el_check_version_is_days_recent 40 ; then
+        el_speak_text "a-live desktop configuration upgraded"
+    fi
 
     timeout 50 zenity --info --text="$( eval_gettext "Your desktop configuration has been restored, the old configuration is backuped in:" )\n$HOME/.e.old"
 
@@ -92,8 +80,7 @@ verify_desktop_health(){
     fi
 
     if ((is_e_restarted_fast_too_much)) ; then
-        # TODO: remove in the future
-        el_speak_text "desktop restarted too much, suggested to start with a new configuration"
+        #el_speak_text "desktop restarted too much, suggested to start with a new configuration"
 
         if timeout 40 zenity --question --text="$( eval_gettext "Your desktop seems to have recently crashed too much, do you want to restart a new configuration?" )" ; then
             restart_desktop_configuration
@@ -106,8 +93,10 @@ verify_desktop_health(){
         el_warning "E restarted fastly too much - versions:\n$(dpkg -l | grep -E "^ii.*(libefl1|e17-stable|e17|elive-tools|deliver|elive-desktop)" | awk '{print $2" : "$3}' )"
     else
         # always do a backup before to start, this will be run in the loop checker
-        if [[ -d "$HOME/.e" ]] && [[ "$( LC_ALL=C du -s "$HOME/.e" | awk '{print $1}' )" -gt 400 ]] && ! grep -qs "boot=live" "/proc/cmdline" ; then
-            is_backup_wanted=1
+        if ! grep -qs "boot=live" "/proc/cmdline" ; then
+            if [[ -d "$HOME/.e" ]] && [[ "$( LC_ALL=C du -s "$HOME/.e" | awk '{print $1}' )" -gt 400 ]] ; then
+                is_backup_wanted=1
+            fi
         fi
     fi
 
@@ -244,8 +233,7 @@ restart_enlightenment(){
     do
         [[ -z "$pid" ]] && continue
 
-        # TODO: delete
-        fullprocess="$( ps ux | grep -E "\s+$pid\s+" | grep -vE "(enlightenment_alert|e-crashdump)" )"
+        #fullprocess="$( ps ux | grep -E "\s+$pid\s+" | grep -vE "(enlightenment_alert|e-crashdump)" )"
 
         # kill only if the alert is not shown
         if ! ps ux | grep -qsE "\s+$pid\s+(enlightenment_alert|e-crashdump)" ; then
@@ -253,6 +241,7 @@ restart_enlightenment(){
             kill -s SIGSEGV "$pid" 2>/dev/null || true
             is_e_restarted=1
 
+            # TODO: delete
             el_error "E blocked, killing '$pid' to recover it: $fullprocess"
         fi
 
@@ -263,8 +252,9 @@ restart_enlightenment(){
     if ((is_e_restarted)) ; then
         #el_notify_user "Enlightnement Restarted" "Elive recovered a crash of your desktop saving your working state and opened windows. Thank you Elive!"
         # tell the user in a very nice fashion way
-        #el_speak_text "a-live desktop initiated special recovery"
-        el_speak_text "ai-live desktop initiated recovery"
+        if el_check_version_is_days_recent 14 ; then
+            el_speak_text "ai-live desktop initiated recovery"
+        fi
 
         LC_ALL=C sleep 20
         notify-send -t 60000 "Enlightnement Restarted" "$( eval_gettext "Elive detected a failure and recovered your desktop saving your working windows. If you want to report an issue to Elive so we can fix it, please describe what you were going before the recovery." )" &
@@ -287,7 +277,7 @@ watch_enlightenment_blocked(){
     local pong count
 
     # wait for things initiated {{{
-    for count in $( seq 60 ) ; do
+    for count in $( seq 40 ) ; do
         pong="$( LC_ALL=C timeout 5 enlightenment_remote -ping 2>/dev/null || true )"
         if [[ "$pong" = *"pong" ]] ; then
             break
@@ -302,13 +292,14 @@ watch_enlightenment_blocked(){
         unset pong
 
         # note: if E is running with a slow process, it can feel blocked too (like programmers-kb-layout-switch)
-        # max time to see if E is not blocked: 40 seconds, we should not have anything pausing E for more than this time
-        for count in $( seq 20 ) ; do
+        # max time to see if E is not blocked: 48 seconds, we should not have anything pausing E for more than this time
+        for count in $( seq 24 ) ; do
             pong="$( LC_ALL=C timeout 5 enlightenment_remote -ping 2>/dev/null || true )"
             if [[ "$pong" = *"pong" ]] ; then
                 # pong is ok
                 break
             else
+                # note: we should only rely in our e_start_pid, which is the only one that is not closed until E really closes
                 if LC_ALL=C kill -0 $e_start_pid 2>/dev/null ; then
                     # we have our E START still running
                     LC_ALL=C sleep 2
@@ -327,6 +318,7 @@ watch_enlightenment_blocked(){
 
         #all good, don't bottleneck per loop
         LC_ALL=C sleep 4
+
 
 
         # did we wanted to do a backup?
@@ -353,30 +345,8 @@ main(){
     # pre {{{
 
     # }}}
-    # TODO:
-    # - trap E that doesn't ping (kill -s SIGSEGV to restart)
-    #           - implemented in eremote
-    #       - don't ask in the gui if restart, just restart (F1 option)
-    # - trap the returning signal by e17, and ask (restore conf?) (should be always 0 ?)
-    #       - looks like its not returned as an error (enlightenment_start return is not enlightenment one)
-    # - check for configurations to see if user broken something (each 5 minutes maybe could be a good thing)
-    # - truncate .xsession-errors every X mb
-    # - if multiple crashes (set a counter of crashes and amount of time), ask to the user if restore the default E configuration (like 3 in 1 minute, or 4 in 2 minutes)
-    # - in case of sending debug & "anonymous", ask the user if wants to report debug data (and ask for email, so we can contact him), save this conf to /etc
-    # XXX: done until here
-    # if E has been run for more than X days (RAM usage grows over time) like 1 week, restart it -- or check the memory consumption better (so it can grow faster due to errors, or maybe not-so-needed)
-    # incremental backups of E dir (bkp), with automatic restore if user breaks it (instead of restart E conf, which can be a good option too?)
-    # include "speaking actions with el_speak_text -f, like: initiating special elive recovering
-    #   - what if the user wants to disable them?
-    # implement a special way to upgrade the system (in order that we can found bugs after the release, something like an wget or similar..)
-    # - if ecomorph is already running, kill it when exiting from E
-    # - fill everything with el_error and el_warning, or el_report_bug... to know about things that happens!
-    #
-    # - if we run E without dbus (or module unloaded?), this tool will lead to inifinite loops, so instead, do a pause asking the user to load the module
-    #
-    #
-    #
 
+    # note: this can be nice but maybe the user has selected its own icon theme, so we don't want that
     #if [[ -d "$HOME/.e/e17" ]] ; then
         #cd "$HOME/.e/e17/config/standard"
 
@@ -395,40 +365,23 @@ main(){
 
     verify_desktop_health
 
+
+    rm -f "$HOME/.xsession-errors"
+
     # not implemented yet
     #verify_configuration_validity
-
-    # kill any possible previous session of E (needed for any possible hanged one and to not have duplicated processes)
-    # FIXME: this can be very bad if it's a double session (like startx from another terminal or using the user-switching feature stuff, already implemented)
-    #while read -ru 3 line
-    #do
-        #kill -9 "$line" 1>/dev/null 2>&1 || true
-    #done 3<<< "$( ps ux | grep -E "\s+$(which enlightenment)$" | grep -E "^(${USER}|${UID})\s+" | awk '{print $2}' )"
 
 
     #
     # Start E
     #
-
-    rm -f "$HOME/.xsession-errors"
-
-
-    #unset E_CONF_PROFILE
-    #enlightenment_start "$@" 2>"$HOME/.xsession-errors" 1>/dev/null  &
-    # TODO: maybe run it in a "while read line" so that we can parse all the results here?
-
-    #EL_DEBUG="$_el_debug" enlightenment_start "$@" 2>&1 | tee "$HOME/.xsession-errors" &
-    #TODO: better way to unset variables?
-    # TODO: unset all of them, seems like we don't inherit them, since they are set AFTER here
-    # NOTE: do not use "tee", it will block the exit/logout of E
     TEXTDOMAIN="" \
         is_e_restarted_fast_too_much="" \
         enlightenment_start "$@" 2>&1 &
     e_start_pid="$!"
 
-        #enlightenment_start "$@" 2>&1 | tee "$HOME/.xsession-errors" &
     # wait that desktop finishes to start before to run checkers
-    sleep 15
+    sleep 12
 
     # this watcher stops after no more enlightenment process is running
     watch_enlightenment_blocked
