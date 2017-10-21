@@ -5,10 +5,12 @@ source /usr/lib/elive-tools/functions
 TEXTDOMAIN="desktopwrapper"
 export TEXTDOMAIN
 
+# Note: this tool has no way to determine which E instance are you running (in case that you are running multiple instances, which is not something very common at all), but in the worst case it will reload E if both are blocked, and also it will recover both of them
+# TODO: test: what if we exit from one of these instances?
+
 # no need to enable since we have el_error & debug info
-# FIXME:
-export NOREPORTS=1
-set -x
+#export NOREPORTS=1
+#set -x
 #_el_debug="$EL_DEBUG"
 #export EL_DEBUG=3
 # we should not use this or we will always get exit errors ? no, we want to catch all the signals to correctly exit_error triggers
@@ -296,7 +298,7 @@ restart_enlightenment(){
         el_speak_text "ai-live desktop initiated recovery"
 
         LC_ALL=C sleep 20
-        notify-send -t 20000 "Enlightnement Restarted" "$( eval_gettext "Elive detected a failure and recovered your desktop saving your working windows. If you want to report an issue to Elive so we can fix it, please describe what you were going before the recovery." )" &
+        notify-send -t 60000 "Enlightnement Restarted" "$( eval_gettext "Elive detected a failure and recovered your desktop saving your working windows. If you want to report an issue to Elive so we can fix it, please describe what you were going before the recovery." )" &
 
         # get new pid if changed {{{
         if ((is_e_restarted)) ; then
