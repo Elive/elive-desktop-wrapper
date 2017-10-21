@@ -30,12 +30,19 @@ lockfile="/tmp/.$(basename $0)-${USER}.lock"
 exit_ok(){
     rm -f "$lockfile"
     kill -9 "$e_pid" 2>/dev/null || true
+
+    # TODO: when we come back from E to the wrapper, do we have any of these dirs?
+    if ! [[ -d "/tmp/e-${USER}@1" ]] ; then
+        killall ecomorph 1>/dev/null 2>&1 || killall -9 ecomorph 1>/dev/null 2>&1 || true
+    fi
 }
 exit_error(){
     exit_pid="$!"
-    rm -f "$lockfile"
-    kill -9 "$e_pid" 2>/dev/null || true
-    el_error "exit error '${exit_pid}' trap triggered from $(basename $0) - ${FUNCNAME[@]}"
+    el_warning "received signal $exit_pid - e_pid is: $(ps ux | grep $e_pid | grep -v grep )"
+
+    #rm -f "$lockfile"
+    #kill -9 "$e_pid" 2>/dev/null || true
+    ##el_error "exit error '${exit_pid}' trap triggered from $(basename $0) - ${FUNCNAME[@]}"
     unset exit_pid
 }
 
@@ -376,15 +383,16 @@ watch_enlightenment_blocked(){
             #fi
 
             # evalate if a check every X time
-            counter_logs_time_now="$( LC_ALL=C date +%s )"
-            if [[ "$counter_logs_time_now" -gt "$(( $counter_logs_time_last + $limit_logs_check ))" ]] ; then
-                counter_logs_time_last="$( LC_ALL=C date +%s )"
+            # TODO: keep this disabled and remove all the code if we don't use xsession-errors (we cannot use the "tee" or it will block)
+            #counter_logs_time_now="$( LC_ALL=C date +%s )"
+            #if [[ "$counter_logs_time_now" -gt "$(( $counter_logs_time_last + $limit_logs_check ))" ]] ; then
+                #counter_logs_time_last="$( LC_ALL=C date +%s )"
 
-                if [[ "$( du -s "$HOME/.xsession-errors" | awk '{print $1}' )" -gt 20000 ]] ; then
-                    #el_warning "cleaned xsession-errors file because has more than 20 MB"
-                    : > "$HOME/.xsession-errors"
-                fi
-            fi
+                #if [[ "$( du -s "$HOME/.xsession-errors" | awk '{print $1}' )" -gt 20000 ]] ; then
+                    ##el_warning "cleaned xsession-errors file because has more than 20 MB"
+                    #: > "$HOME/.xsession-errors"
+                #fi
+            #fi
 
         else
             # try to get a new pid
@@ -501,10 +509,12 @@ main(){
     #EL_DEBUG="$_el_debug" enlightenment_start "$@" 2>&1 | tee "$HOME/.xsession-errors" &
     #TODO: better way to unset variables?
     # TODO: unset all of them, seems like we don't inherit them, since they are set AFTER here
+    # NOTE: do not use "tee", it will block the exit/logout of E
     TEXTDOMAIN="" \
         is_e_restarted_fast_too_much="" \
-        enlightenment_start "$@" 2>&1 | tee "$HOME/.xsession-errors" &
+        enlightenment_start "$@" 2>&1 &
 
+        #enlightenment_start "$@" 2>&1 | tee "$HOME/.xsession-errors" &
     # wait that desktop finishes to start before to run checkers
     sleep 10
 
@@ -515,9 +525,7 @@ main(){
     wait
 
     # close things when exiting E
-    if ! [[ -d "/tmp/e-${USER}@1" ]] ; then
-        killall ecomorph 1>/dev/null 2>&1 || killall -9 ecomorph 1>/dev/null 2>&1 || true
-    fi
+    #if ! [[ -d "/tmp/e-${USER}@0" ]] && ! [[ -d "/tmp/e-${USER}@1" ]] ; then
 
     # cleanup
     rm -f "$lockfile"
