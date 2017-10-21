@@ -9,7 +9,8 @@ export TEXTDOMAIN
 #set -x
 #_el_debug="$EL_DEBUG"
 #export EL_DEBUG=3
-#set -E # we should not use this or we will always get exit errors (
+# we should not use this or we will always get exit errors ? no, we want to catch all the signals to correctly exit_error triggers
+set -E
 
 counter_crash_amount=0
 counter_crash_fast_amount=0
@@ -63,15 +64,15 @@ if (ps up $PROCCESS) 1>/dev/null 2>&1 ; then
         kill -9 "$( ps ux | grep -vE "($pid_wrapper|grep|xinit|startx|lightdm)" | grep -E "\s+$( readlink -f "$0")$" | awk '{print $2}' | tail -1 )" 2>/dev/null || true
     fi
     # TODO: remove later this entry, since it can make the startup much slower!
-    el_error "$(basename $0) already running? forced exit needed? continuing... this should never happen\n$(ps aux | grep -vE "($pid_wrapper|grep)" | grep -E "($0|$(readlink -f $0)|enlightenment)" )"
+    el_error "$(basename $0) already running? forced exit needed? continuing... this should never happen\n$(ps aux | grep -vE "($pid_wrapper|grep|xinit|startx|lightdm)" | grep -E "($0|$(readlink -f $0)|enlightenment)" )"
     #exit
     echo $$ > "$lockfile"
 else
     echo $$ > "$lockfile"
 fi
 # TODO: remove in the future:
-if ps aux | grep -vE "($pid_wrapper|grep)" | grep -qsE "($0|$(readlink -f $0))" ; then
-    el_warning "$(basename $0) previously running? forced exit needed? continuing... this should never happen\n$(ps aux | grep -vE "($pid_wrapper|grep)" | grep -E "($0|$(readlink -f $0))" )"
+if ps aux | grep -vE "($pid_wrapper|grep|xinit|startx|lightdm)" | grep -qsE "($0|$(readlink -f $0))" ; then
+    el_warning "$(basename $0) previously running? forced exit needed? continuing... this should never happen\n$(ps aux | grep -vE "($pid_wrapper|grep|xinit|startx|lightdm)" | grep -E "($0|$(readlink -f $0))" )"
 fi
 # set a new lockfile no matter what
 #echo $$ > "$lockfile"
