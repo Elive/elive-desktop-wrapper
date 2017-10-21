@@ -434,8 +434,8 @@ watch_enlightenment_blocked(){
                 restart_enlightenment
             fi
 
-            #all good, don't bottleneck
-            LC_ALL=C sleep 2
+            #all good, don't bottleneck per loop
+            LC_ALL=C sleep 4
 
             # save if we are using a different profile
             #E_CONF_PROFILE="$( enlightenment_remote -default-profile-get )"
