@@ -330,6 +330,7 @@ watch_enlightenment_blocked(){
     do
         # get actual pid
         #e_pid="$( LC_ALL=C pidof enlightenment)"
+        unset pong
 
         # if there's no pid, E has finished, so let's exit, and do not try to get a new one first
         if [[ ! -n "$e_pid" ]] ; then
@@ -350,20 +351,19 @@ watch_enlightenment_blocked(){
         # check if process is correctly running
         if LC_ALL=C kill -0 "$e_pid" 2>/dev/null ; then
 
-            pong="$( LC_ALL=C timeout 10 enlightenment_remote -ping 2>/dev/null || true )"
-            if ! [[ "$pong" = *"pong" ]] ; then
-                LC_ALL=C sleep 2
-
-                pong="$( LC_ALL=C timeout 10 enlightenment_remote -ping 2>/dev/null || true )"
-                if ! [[ "$pong" = *"pong" ]] ; then
-                    LC_ALL=C sleep 3
-
-                    pong="$( LC_ALL=C timeout 10 enlightenment_remote -ping 2>/dev/null || true )"
-                    if ! [[ "$pong" = *"pong" ]] ; then
-                        # note: this could happen too if dbus is not running under E
-                        restart_enlightenment
-                    fi
+            # note: if E is running with a slow process, it can feel blocked too (like programmers-kb-layout-switch)
+            for count in $( seq 12 ) ; do
+                pong="$( LC_ALL=C timeout 5 enlightenment_remote -ping 2>/dev/null || true )"
+                if [[ "$pong" = *"pong" ]] ; then
+                    break
+                else
+                    LC_ALL=C sleep 1
                 fi
+            done
+            # if we didn't had a pong in our max amount of attemps, restart
+            if ! [[ "$pong" = *"pong" ]] ; then
+                # note: this could happen too if dbus is not running under E
+                restart_enlightenment
             fi
 
             #all good, don't bottleneck
