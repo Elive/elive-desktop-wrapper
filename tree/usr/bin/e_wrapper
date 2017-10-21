@@ -14,6 +14,7 @@ set -x
 #_el_debug="$EL_DEBUG"
 #export EL_DEBUG=3
 # we should not use this or we will always get exit errors ? no, we want to catch all the signals to correctly exit_error triggers
+# TODO: remove, seems like we don't need it at all, HUP signal is catched without it
 set -E
 
 counter_crash_amount=0
@@ -45,21 +46,21 @@ exit_ok(){
     fi
 }
 exit_error(){
-    exit_pid="$?"
+    exit_status="$?"
     # TODO: remove
-    #el_error "received signal $exit_pid - e_pid is: $(ps ux | grep $e_pid | grep -v grep ) - e_start_pid is: $(ps ux | grep $e_start_pid | grep -v grep)"
-    el_error "${FUNCNAME} received signal $exit_pid - E $e_pid - E_START $e_start_pid \n\nE instances:\n$(ps ux | grep -vE "(grep)" | grep enlightenment)"
+    #el_error "received signal $exit_status - e_pid is: $(ps ux | grep $e_pid | grep -v grep ) - e_start_pid is: $(ps ux | grep $e_start_pid | grep -v grep)"
+    el_error "${FUNCNAME} received signal $exit_status - E $e_pid - E_START $e_start_pid \n\nE instances:\n$(ps ux | grep -vE "(grep)" | grep enlightenment)"
 
     #rm -f "$lockfile"
     #kill -9 $e_pid 2>/dev/null || true
     #kill -9 $e_start_pid 2>/dev/null || true
-    ##el_error "exit error '${exit_pid}' trap triggered from $(basename $0) - ${FUNCNAME[@]}"
-    unset exit_pid
+    ##el_error "exit error '${exit_status}' trap triggered from $(basename $0) - ${FUNCNAME[@]}"
+    unset exit_status
 }
 signal_died(){
-    exit_pid="$?"
+    exit_status="$?"
 
-    el_error "${FUNCNAME} received signal $exit_pid - E $e_pid - E_START $e_start_pid \n\nE instances:\n$(ps ux | grep -vE "(grep)" | grep enlightenment)"
+    el_error "${FUNCNAME} received signal $exit_status - E $e_pid - E_START $e_start_pid \n\nE instances:\n$(ps ux | grep -vE "(grep)" | grep enlightenment)"
 
     if ! [[ -n "$( pidof enlightenment )" ]] && ! [[ -n "$( pidof enlightenment_start )" ]] ; then
         exit
@@ -72,7 +73,7 @@ signal_died(){
             exit
         fi
     fi
-    unset exit_pid
+    unset exit_status
 }
 
 if [[ -r "$lockfile" ]] ; then
@@ -108,7 +109,8 @@ trap "exit_ok" EXIT
 #trap "exit_error" 1 3 5 6 14 15 ERR TERM # ERR trap not works nicely with set -E
 # notes: signal 1 is received to E if I ^C in the terminal where running startx /usr/bin/e_wrapper
 trap "exit_error" 3 5 6 14 15 TERM
-trap "signal_died" 1
+# SIGHUP is signal 129, so ^C
+trap "signal_died" HUP
 
 
 # end lock system }}}
@@ -488,8 +490,13 @@ watch_enlightenment_blocked(){
             unset is_backup_wanted
 
             if [[ -d "$HOME/.e" ]] ; then
+                # wait a bit more to correctly finish startups
+                sleep 10
+                enlightenment_remote -save
+
                 cd "$HOME/.e"
                 bkp remove
+                sync
                 bkp save
                 cd
             fi
@@ -577,7 +584,7 @@ main(){
 
         #enlightenment_start "$@" 2>&1 | tee "$HOME/.xsession-errors" &
     # wait that desktop finishes to start before to run checkers
-    sleep 10
+    sleep 15
 
     # this watcher stops after no more enlightenment process is running
     watch_enlightenment_blocked
