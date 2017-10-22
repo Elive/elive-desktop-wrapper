@@ -33,7 +33,9 @@ exit_error(){
     exit_status="$?"
 
     # TODO: remove
-    el_warning "${FUNCNAME} received signal $exit_status \n\nE instances:\n$(ps ux | grep -vE "(grep)" | grep enlightenment)"
+    # note: if user do "reboot" from a terminal in X, E exits with the signal 129, so maybe is a good thing to note these signals and tell the user that he didn't exited correctly
+    # nope: if you shutdown from the menu you have the same signal
+    #el_warning "${FUNCNAME} received signal $exit_status \n\nE instances:\n$(ps ux | grep -vE "(grep)" | grep enlightenment)"
 
     unset exit_status
     exit 0
