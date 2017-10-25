@@ -87,7 +87,7 @@ restart_desktop_configuration(){
         el_speak_text "a-live desktop configuration upgraded"
     fi
 
-    timeout 50 zenity --info --text="$( eval_gettext "Your desktop configuration has been restored, the old configuration is backuped in:" )\n$HOME/.e.old"
+    timeout 50 zenity --info --text="$( eval_gettext "Your desktop configuration has been restored, the backup from the old configuration is stored in:" )\n$HOME/.e.old"
 
     # - notify user }}}
 }
@@ -276,7 +276,7 @@ restart_enlightenment(){
         fi
 
         LC_ALL=C sleep 20
-        notify-send -t 60000 "Enlightnement Restarted" "$( eval_gettext "Elive detected a failure and recovered your desktop saving your working windows. If you want to report an issue to Elive so we can fix it, please describe what you were going before the recovery." )" &
+        notify-send -t 60000 "Enlightnement Restarted" "$( eval_gettext "Elive detected a failure and recovered your desktop saving your working windows. If you want to report an issue to Elive so we can fix it, please describe what you were doing before the recovery." )" &
 
         # see if we restarted too much, if so, it will be asked to recover configuration in the next startx
         crashes_watcher
