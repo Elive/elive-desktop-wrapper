@@ -14,6 +14,8 @@ export TEXTDOMAIN
 # seems like we don't need it at all, HUP signal is catched without it
 #set -E
 
+# TODO: every X time, delete the cached freedesktops (once per week?)
+
 counter_crash_amount=0
 counter_crash_fast_amount=0
 
