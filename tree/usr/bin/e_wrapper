@@ -15,6 +15,7 @@ export TEXTDOMAIN
 #set -E
 
 # TODO: every X time, delete the cached freedesktops (once per week?)
+# TODO: check if user is using the default Elive wallapaper and otherwise do something (change it back? ask? ... ) using other wallpapers makes the desktop less usable due to color replacements
 
 counter_crash_amount=0
 counter_crash_fast_amount=0
