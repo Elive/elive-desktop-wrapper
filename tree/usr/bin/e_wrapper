@@ -400,7 +400,7 @@ main(){
     #
     TEXTDOMAIN="" \
         is_e_restarted_fast_too_much="" \
-        enlightenment_start "$@" 2>&1 &
+        enlightenment_start "$@" 1>"$HOME/.xsession-errors" 2>&1 &
     e_start_pid="$!"
 
     # wait that desktop finishes to start before to run checkers
