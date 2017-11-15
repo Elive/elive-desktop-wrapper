@@ -22,21 +22,21 @@ counter_crash_fast_amount=0
 
 limit_crash_amount=3
 limit_crash_time=240 # previous crash happened in less than 4 minutes
-limit_logs_check="$(( 2 * 60 * 60 ))" # two hours
+limit_logs_check="$(( 4 * 60 * 60 ))" # four hours
 
 # limit of time that E can be paused before to be considered a block
 # FIXME: use bigger value if the computer is slow
-limit_paused_time="48"
+limit_paused_time="60"
 cpubogomips="$( grep bogomips /proc/cpuinfo | sed -e 's|^.*: ||g' -e 's|\..*$||g' | tr ' ' '\n' | grep "[[:digit:]]" | head -1 )"
 # 3350 (1.66 nettop), 1800 (900mhz)
 if [[ "$cpubogomips" -lt 1500 ]] ; then
-    limit_paused_time="120"
+    limit_paused_time="180"
 else
     if [[ "$cpubogomips" -lt 1900 ]] ; then
-        limit_paused_time="90"
+        limit_paused_time="120"
     else
         if [[ "$cpubogomips" -lt 3500 ]] ; then
-            limit_paused_time="60"
+            limit_paused_time="90"
         fi
     fi
 fi
@@ -357,6 +357,17 @@ watch_enlightenment_blocked(){
                 sync
                 bkp save 1>/dev/null 2>&1
                 cd
+            fi
+        fi
+
+        # cleanup logs
+        counter_logs_time_now="$( LC_ALL=C date +%s )"
+        if [[ "$counter_logs_time_now" -gt "$(( $counter_logs_time_last + $limit_logs_check ))" ]] ; then
+            counter_logs_time_last="$( LC_ALL=C date +%s )"
+
+            if [[ "$( du -s "$HOME/.xsession-errors" | awk '{print $1}' )" -gt 20000 ]] ; then
+                #el_warning "cleaned xsession-errors file because has more than 20 MB"
+                : > "$HOME/.xsession-errors"
             fi
         fi
 
