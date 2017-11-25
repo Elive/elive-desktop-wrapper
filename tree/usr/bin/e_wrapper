@@ -70,26 +70,29 @@ check_updated_configurations(){
     local package_e17conf_installed_version
 
     # get the package installed version
-    package_e17conf_installed_version="$( LC_ALL=C apt-cache madison e17-conf | awk -v FS='|' '{print $2}' | head -1 )"
+    #package_e17conf_installed_version="$( LC_ALL=C apt-cache madison e17-conf | awk -v FS='|' '{print $2}' | head -1 )"
+    package_e17conf_installed_version="$( LC_ALL=C dpkg-query -W e17-conf | awk '{print $2}' | tail -1 )"
     read -r package_e17conf_installed_version <<< "$package_e17conf_installed_version"
 
 
-    if [[ -n "$package_e17conf_installed_version" ]] && [[ "$package_e17conf_installed_version_prev" ]] ; then
-        if [[ "${package_e17conf_installed_version}" != "$package_e17conf_installed_version_prev" ]] ; then
-            # ask if upgrade the E confs
-            if timeout 120 zenity --question --text="$( eval_gettext "There's an update for your desktop features and configurations, we suggest to upgrade it, but you will lose your personal settings like modules, keybindings, or gadget configurations, if you made any of these configurations. Do you want to restart your desktop configurations to the new one?" )" ; then
-                elive-skel upgrade ".e"
-                sync
-            fi
+    if [[ -n "$package_e17conf_installed_version" ]] ; then
+        if [[ "$package_e17conf_installed_version_prev" ]] ; then
+            if [[ "${package_e17conf_installed_version}" != "$package_e17conf_installed_version_prev" ]] ; then
+                # ask if upgrade the E confs
+                if timeout 120 zenity --question --text="$( eval_gettext "There's an update for your desktop features and configurations, we suggest to upgrade it, but you will lose your personal settings like modules, keybindings, or gadget configurations, if you made any of these configurations. Do you want to restart your desktop configurations to the new one?" )" ; then
+                    elive-skel upgrade ".e"
+                    sync
+                fi
 
-            # remember the new version
+                # remember the new version
+                package_e17conf_installed_version_prev="$package_e17conf_installed_version"
+                el_config_save "package_e17conf_installed_version_prev"
+            fi
+        else
+            # new conf, save it
             package_e17conf_installed_version_prev="$package_e17conf_installed_version"
             el_config_save "package_e17conf_installed_version_prev"
         fi
-    else
-        # new conf, save it
-        package_e17conf_installed_version_prev="$package_e17conf_installed_version"
-        el_config_save "package_e17conf_installed_version_prev"
     fi
 
 }
