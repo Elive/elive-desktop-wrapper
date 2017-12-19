@@ -152,6 +152,15 @@ verify_desktop_health(){
         fi
     fi
 
+    # was the shutdown forced?
+    if [[ -e "/var/tmp/elivehealth/elive-system-shutdown-forced" ]] && grep -qs "^yes$" "/var/tmp/elivehealth/elive-system-shutdown-forced" ; then
+        if zenity --question --text="$( eval_gettext "You have forced the shutdown of your computer, to shutdown it correctly you need to do it from the menu. But in case your desktop has wrong configurations and doesn't works as expected anymore you can restore to the original Elive configurations. Do you want to restore your desktop configurations?" )" ; then
+            true
+        fi
+        # remove the verification file
+        echo "user notified pre" > "/var/tmp/elivehealth/elive-system-shutdown-forced"
+    fi
+
     # }}}
 }
 
