@@ -76,7 +76,7 @@ check_updated_configurations(){
 
 
     if [[ -n "$package_e17conf_installed_version" ]] ; then
-        if [[ "$package_e17conf_installed_version_prev" ]] ; then
+        if [[ "$package_e17conf_installed_version_prev" ]] && [[ -d "$HOME/.e" ]] ; then
             if [[ "${package_e17conf_installed_version}" != "$package_e17conf_installed_version_prev" ]] ; then
                 # ask if upgrade the E confs
                 if timeout 180 zenity --question --text="$( eval_gettext "There's an update for your desktop features and configurations, we suggest to upgrade it, but you will lose any personal settings like modules, keybindings, or desktop configurations, in order to be to the last featured Elive ones. Do you want to upgrade to a new desktop configurations?" )" ; then
