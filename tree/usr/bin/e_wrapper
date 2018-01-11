@@ -41,6 +41,10 @@ else
     fi
 fi
 
+if grep -qs "boot=live" "/proc/cmdline" ; then
+    is_live=1
+fi
+
 counter_logs_time_last="$( date +%s )"
 pid_wrapper="$$"
 
@@ -99,7 +103,7 @@ check_updated_configurations(){
 
 restart_desktop_configuration(){
     # elive-skel upgrade {{{
-    if grep -qs "boot=live" "/proc/cmdline" ; then
+    if ((is_live)) ; then
         rm -r "$HOME/.e"
     else
         if [[ -d "$HOME/.e" ]] && timeout 40 zenity --question --text="$( eval_gettext "Do you want restore your desktop configuration from your last login instead of restart a new conf?" )" ; then
@@ -145,7 +149,7 @@ verify_desktop_health(){
         el_warning "E restarted fastly too much - versions:\n$(dpkg -l | grep -E "^ii.*(libefl1|e17-stable|e17|elive-tools|deliver|elive-desktop)" | awk '{print $2" : "$3}' )"
     else
         # always do a backup before to start, this will be run in the loop checker
-        if ! grep -qs "boot=live" "/proc/cmdline" ; then
+        if ! ((is_live)) ; then
             if [[ -d "$HOME/.e" ]] && [[ "$( LC_ALL=C du -s "$HOME/.e" | awk '{print $1}' )" -gt 400 ]] ; then
                 is_backup_wanted=1
             fi
@@ -450,10 +454,18 @@ main(){
     #
     # Start E
     #
-    TEXTDOMAIN="" \
-        is_e_restarted_fast_too_much="" \
-        enlightenment_start "$@" 1>"$HOME/.xsession-errors" 2>&1 &
-    e_start_pid="$!"
+    if ((is_live)) ; then
+        # do not save logs in live mode, reduce disk usage (specially useful for persistence)
+        TEXTDOMAIN="" \
+            is_e_restarted_fast_too_much="" \
+            enlightenment_start "$@" &
+        e_start_pid="$!"
+    else
+        TEXTDOMAIN="" \
+            is_e_restarted_fast_too_much="" \
+            enlightenment_start "$@" 1>"$HOME/.xsession-errors" 2>&1 &
+        e_start_pid="$!"
+    fi
 
     # wait that desktop finishes to start before to run checkers
     sleep 12
