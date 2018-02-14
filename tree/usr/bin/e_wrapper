@@ -83,7 +83,7 @@ check_updated_configurations(){
         if [[ "$package_e17conf_installed_version_prev" ]] && [[ -d "$HOME/.e" ]] ; then
             if [[ "${package_e17conf_installed_version}" != "$package_e17conf_installed_version_prev" ]] ; then
                 # ask if upgrade the E confs
-                if timeout 180 zenity --question --text="$( eval_gettext "There's an update for your desktop features and configurations, it's very suggested to upgrade it to get the new Elive features and have a better compatibility, but you will lose any personal settings like modules, keybindings, or desktop configurations. Do you want to upgrade to a new desktop configurations?" )" ; then
+                if timeout 180 zenity --question --text="$( eval_gettext "Desktop configurations updates found! It's very suggested to upgrade it to get the Elive features, you will lose your personal settings like modules, keybindings, or desktop configurations will be removed. Upgrade it?" )" ; then
                     elive-skel upgrade ".e"
                     sync
                 fi
@@ -106,7 +106,10 @@ restart_desktop_configuration(){
     if ((is_live)) ; then
         rm -r "$HOME/.e"
     else
-        if [[ -d "$HOME/.e" ]] && timeout 40 zenity --question --text="$( eval_gettext "Do you want restore your desktop configuration from your last login instead of restart a new conf?" )" ; then
+        if [[ -d "$HOME/.e" ]] \
+            && [[ "$( cd "$HOME/.e" ; if LC_ALL=C bkp list | grep -qs " directory$" ; then echo yes ; else echo no ; fi )" = "yes" ]] \
+            && timeout 40 zenity --question --text="$( eval_gettext "Do you want restore a recent backup of your own desktop configurations instead of importing a new conf?" )" ; then
+
             cd "$HOME/.e"
             bkp get
             cd
@@ -138,7 +141,7 @@ verify_desktop_health(){
     if ((is_e_restarted_fast_too_much)) ; then
         #el_speak_text "desktop restarted too much, suggested to start with a new configuration"
 
-        if timeout 40 zenity --question --text="$( eval_gettext "Your desktop seems to have recently crashed too much, do you want to restart a new configuration?" )" ; then
+        if timeout 40 zenity --question --text="$( eval_gettext "Your desktop seems to have recently crashed too much, do you want to restart to a new clean configuration?" )" ; then
             restart_desktop_configuration
         fi
 
@@ -158,7 +161,7 @@ verify_desktop_health(){
 
     # was the shutdown forced?
     if [[ -e "/var/tmp/elivehealth/elive-system-shutdown-forced" ]] && grep -qs "^yes$" "/var/tmp/elivehealth/elive-system-shutdown-forced" ; then
-        if zenity --question --text="$( eval_gettext "You have forced the shutdown of your computer, to shutdown it correctly you need to do it from the menu. But in case your desktop has wrong configurations and doesn't works as expected anymore you can restore to the original Elive configurations. Do you want to restore your desktop configurations?" )" ; then
+        if zenity --question --text="$( eval_gettext "Restore backup? Your computer has been forced shutdown, this is very bad for your data and can break your desktop configurations. Do you want to recover it from a recent backup?" )" ; then
             true
         fi
         # remove the verification file
@@ -396,7 +399,7 @@ watch_enlightenment_blocked(){
                 enlightenment_remote -save
 
                 cd "$HOME/.e"
-                bkp remove 1>/dev/null 2>&1
+                bkp remove 1>/dev/null 2>&1 || true
                 sync
                 bkp save 1>/dev/null 2>&1
                 cd
