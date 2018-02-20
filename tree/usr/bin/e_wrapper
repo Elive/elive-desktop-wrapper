@@ -84,8 +84,14 @@ check_updated_configurations(){
             if [[ "${package_e17conf_installed_version}" != "$package_e17conf_installed_version_prev" ]] ; then
                 # ask if upgrade the E confs
                 if timeout 180 zenity --question --text="$( eval_gettext "Desktop configurations updates found! It's very suggested to upgrade it to get the Elive features, you will lose your personal settings like modules, keybindings, or desktop configurations will be removed. Upgrade it?" )" ; then
+
+                    cd "$HOME/.e"
+                    bkp remove 1>/dev/null 2>&1 || true
+                    cd
+
                     elive-skel upgrade ".e"
                     sync
+                    is_conf_upgraded=1
                 fi
 
                 # remember the new version
@@ -135,6 +141,11 @@ restart_desktop_configuration(){
 verify_desktop_health(){
     # E seems like to be unusable due to too much crashes {{{
     if ! [[ -d "$HOME/.e" ]] ; then
+        return
+    fi
+    # no need to recover if new conf
+    if ((is_conf_upgraded)) ; then
+        unset is_conf_upgraded
         return
     fi
 
@@ -443,9 +454,9 @@ main(){
 
     el_config_get
 
-    verify_desktop_health
-
     check_updated_configurations
+
+    verify_desktop_health
 
 
     rm -f "$HOME/.xsession-errors"
