@@ -20,7 +20,7 @@ export TEXTDOMAIN
 counter_crash_amount=0
 counter_crash_fast_amount=0
 
-limit_crash_amount=3
+limit_crash_amount=4
 limit_crash_time=240 # previous crash happened in less than 4 minutes
 limit_logs_check="$(( 4 * 60 * 60 ))" # four hours
 
