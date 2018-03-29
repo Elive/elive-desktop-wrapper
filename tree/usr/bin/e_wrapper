@@ -23,6 +23,7 @@ counter_crash_fast_amount=0
 limit_crash_amount=4
 limit_crash_time=240 # previous crash happened in less than 4 minutes
 limit_logs_check="$(( 4 * 60 * 60 ))" # four hours
+limit_autoreload_check="$(( 4 * 24 * 60 * 60 ))" # 4 days
 
 # limit of time that E can be paused before to be considered a block
 # FIXME: use bigger value if the computer is slow
@@ -45,7 +46,8 @@ if grep -qs "boot=live" "/proc/cmdline" ; then
     is_live=1
 fi
 
-counter_logs_time_last="$( date +%s )"
+counter_logs_time_last="$( LC_ALL=C  date +%s )"
+counter_autoreload_time_last="$( LC_ALL=C date +%s )"
 pid_wrapper="$$"
 
 exit_ok(){
@@ -300,8 +302,11 @@ send_e_crash_to_elive(){
 
 restart_enlightenment(){
     # pre {{{
-    local pid is_e_restarted fullprocess eliveversion
+    local pid is_e_restarted fullprocess eliveversion is_silent
 
+    if [[ "${1}" = "silent" ]] ; then
+        is_silent=1
+    fi
     # we had before anything useful to report?
     # note: send it before to kill (or the crashdump will have our kill instead)
     send_e_crash_to_elive
@@ -328,7 +333,7 @@ restart_enlightenment(){
 
     # }}}
     # notify user that E has been restarted by Elive {{{
-    if ((is_e_restarted)) ; then
+    if ((is_e_restarted)) && ! ((is_silent)) ; then
         #el_notify_user "Enlightnement Restarted" "Elive recovered a crash of your desktop saving your working state and opened windows. Thank you Elive!"
         # tell the user in a very nice fashion way
         if el_check_version_is_days_recent 14 ; then
@@ -417,15 +422,22 @@ watch_enlightenment_blocked(){
             fi
         fi
 
+
+        counter_time_now="$( LC_ALL=C date +%s )"
+
         # cleanup logs
-        counter_logs_time_now="$( LC_ALL=C date +%s )"
-        if [[ "$counter_logs_time_now" -gt "$(( $counter_logs_time_last + $limit_logs_check ))" ]] ; then
+        if [[ "$counter_time_now" -gt "$(( $counter_logs_time_last + $limit_logs_check ))" ]] ; then
             counter_logs_time_last="$( LC_ALL=C date +%s )"
 
             if [[ "$( du -s "$HOME/.xsession-errors" | awk '{print $1}' )" -gt 20000 ]] ; then
                 #el_warning "cleaned xsession-errors file because has more than 20 MB"
                 : > "$HOME/.xsession-errors"
             fi
+        fi
+        # restart E after some amount of time to free some memory
+        if [[ "$counter_time_now" -gt "$(( $counter_autoreload_time_last + $limit_autoreload_check ))" ]] ; then
+            counter_autoreload_time_last="$( LC_ALL=C date +%s )"
+            restart_enlightenment silent
         fi
 
     done
