@@ -114,6 +114,7 @@ restart_desktop_configuration(){
     if ((is_live)) ; then
         rm -r "$HOME/.e"
     else
+        # TODO: here and all "restore": show the date of the backup
         if [[ -d "$HOME/.e" ]] \
             && [[ "$( cd "$HOME/.e" ; if LC_ALL=C bkp list | grep -qs " directory$" ; then echo yes ; else echo no ; fi )" = "yes" ]] \
             && timeout 40 zenity --question --text="$( eval_gettext "Do you want restore a recent backup of your own desktop configurations instead of importing a new conf?" )" ; then
