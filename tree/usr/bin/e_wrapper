@@ -329,7 +329,7 @@ restart_enlightenment(){
             is_e_restarted=1
 
             # TODO: delete
-            el_error "E blocked, killing '$pid' to recover it: $fullprocess"
+            #el_error "E blocked, killing '$pid' to recover it: $fullprocess"
         fi
 
     done 3<<< "$( ps ux | grep "/usr/bin/enlightenment$" | grep -vE "(enlightenment_alert|e-crashdump)" | awk '{print $2}' )"
