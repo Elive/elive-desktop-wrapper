@@ -154,8 +154,12 @@ verify_desktop_health(){
         return
     fi
 
+    # TODO FIXME: seems like this code is only run when the destkop starts? we want it to be run in loop too, so let's enalbe this for the next 3.x beta versions (check if destkop restarted too much in order to restart configurations)
     if ((is_e_restarted_fast_too_much)) ; then
         #el_speak_text "desktop restarted too much, suggested to start with a new configuration"
+
+        # check and show specific messages about crashes before to suggest anything
+        crashes_messages
 
         if timeout 40 zenity --question --text="$( eval_gettext "Your desktop seems to have recently crashed too much, do you want to restart to a new clean configuration?" )" ; then
             restart_desktop_configuration
@@ -223,6 +227,16 @@ verify_desktop_health(){
     ## - restore desktop }}}
 #}
 
+crashes_messages(){
+    if [[ -s "$HOME/.e-crashdump.txt" ]] ; then
+
+        # some strange ATI cards that reports crashes:
+        if grep -qs "dri/r300_dri\.so" "$HOME/.e-crashdump.txt" ; then
+            notify-send -t 90000 "Desktop Drivers" "$( eval_gettext "Elive detected that you have an ATI graphic card, these cards are known in Linux by their multiple issues, we suggest to replace it for an nvidia card if you can, or another option if you still have problems is to disable the hardware accelerated rendering for your desktop and switch it to software mode, but your desktop will be less smooth and fast." )" &
+        fi
+    fi
+}
+
 crashes_watcher(){
     if [[ -s "$HOME/.e-crashdump.txt" ]] ; then
         counter_crash_time_last="$( echo "$(date +%s) - $( stat -c %Z "$HOME/.e-crashdump.txt" )" | LC_ALL=C bc -l | sed -e 's|\..*$||g' )"
@@ -242,6 +256,11 @@ crashes_watcher(){
             is_e_restarted_fast_too_much=0
             el_config_save "is_e_restarted_fast_too_much"
         fi
+
+        # too much restarts? check confs and tell the user
+        if ((is_e_restarted_fast_too_much)) ; then
+            crashes_messages
+        fi
     fi
 }
 
@@ -253,7 +272,10 @@ send_e_crash_to_elive(){
     if ((is_e_restarted)) ; then
         unset is_e_restarted
     else
-        if [[ -s "$HOME/.e-crashdump.txt" ]] && el_verify_internet ; then
+        # TODO: enable the dpkg && in the future (after to have received enough reoprts), so that the debug info will be included or otherwise not sent
+            #&& dpkg -l | grep "^ii" | awk '{print $2}' | grep -qsE "e17(-stable)?-dbg" \
+        if [[ -s "$HOME/.e-crashdump.txt" ]] \
+            && el_verify_internet ; then
             crashes_watcher
 
             # send debug reports {{{
@@ -351,6 +373,9 @@ restart_enlightenment(){
 
         # this will delete the variable and the crashdump
         send_e_crash_to_elive
+
+        # verify statuses TODO: enable it for the next 3.x beta versions (we dont want to have a flood of messages in the stable version so better to betatest it some time first)
+        #verify_desktop_health
 
         # we never want this backtrace, so we killed it manually, no useful info here
         #rm -f "$HOME/.e-crashdump.txt"
