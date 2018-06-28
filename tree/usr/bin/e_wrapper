@@ -73,6 +73,40 @@ exit_error(){
 trap "exit_ok" EXIT
 trap "exit_error" 3 5 6 14 15 TERM HUP
 
+load_multiscreens_configuration(){
+    local conf datestamp file
+
+    # check for arandr configurations
+    if [[ -d "$HOME/.screenlayout" ]] ; then
+
+        conf="$( find "$HOME/.screenlayout/" -type f -printf "%T@ %p\n" | sort -n | tail -n 1 )"
+        file="$( echo "$conf" | cut -d' ' -f 2- | tail -n 1 )"
+        datestamp="$( echo "$conf" | cut -d' ' -f 1- | tail -n 1 )"
+
+        # only if we have valid configurations
+        if [[ -s "$file" ]] && [[ -x "$file" ]] && grep -qs "^xrandr" "$file" ; then
+
+            # different than last time, ask
+            if [[ -n "$conf_multiscreens_last" ]] && [[ "$conf" != "$conf_multiscreens_last" ]] ; then
+                if timeout 120 zenity --question --text="$( eval_gettext "You have a configuration for multiple screens, do you want to use it?" )" ; then
+                    # load
+                    if timeout 180 zenity --question --text="$( eval_gettext "Move your mouse among your screens to verify the settings. Do you want to always load this configuration when starting Elive?" )" ; then
+                        true
+                        # save configuration to know that we want to load it unless has changed
+                        # verify with xrandr that we still having the correct monitors for the configuration when loading it (list actual screens and save that conf to compare too)
+                        # FIXME: if this works, disable the randr module from enlightenment? (what if we exit from games? try this in tower by loading/unloading the module)
+                            # maybe we can add a watcher here to know about that? no... we need to know that the game exited!
+                        # TODO: if multiple screens connected are found and there's no conf, tell the user how he can configure it
+                    fi
+                fi
+            fi
+
+            conf_multiscreens_last="$conf"
+            el_config_save "conf_multiscreens_last"
+        fi
+    fi
+
+}
 
 check_updated_configurations(){
     local package_e17conf_installed_version
@@ -512,6 +546,8 @@ main(){
     check_updated_configurations
 
     verify_desktop_health
+
+    #load_multiscreens_configuration
 
 
     rm -f "$HOME/.xsession-errors"
