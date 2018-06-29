@@ -128,6 +128,7 @@ check_updated_configurations(){
                     cd
 
                     elive-skel upgrade ".e"
+                    rm -rf "$HOME/.cache/efreet"
                     sync
                     is_conf_upgraded=1
                 fi
@@ -149,6 +150,7 @@ restart_desktop_configuration(){
     # elive-skel upgrade {{{
     if ((is_live)) ; then
         rm -r "$HOME/.e"
+        rm -rf "$HOME/.cache/efreet"
     else
         # TODO: here and all "restore": show the date of the backup
         if [[ -d "$HOME/.e" ]] \
@@ -160,6 +162,7 @@ restart_desktop_configuration(){
             cd
         else
             elive-skel upgrade ".e"
+            rm -rf "$HOME/.cache/efreet"
         fi
     fi
 
