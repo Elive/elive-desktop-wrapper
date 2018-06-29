@@ -96,7 +96,7 @@ load_multiscreens_configuration(){
                         # verify with xrandr that we still having the correct monitors for the configuration when loading it (list actual screens and save that conf to compare too)
                         # FIXME: if this works, disable the randr module from enlightenment? (what if we exit from games? try this in tower by loading/unloading the module)
                             # maybe we can add a watcher here to know about that? no... we need to know that the game exited!
-                        # TODO: if multiple screens connected are found and there's no conf, tell the user how he can configure it
+                        # TODO: if multiple screens connected are found and there's no conf, ask if run arandr NOW so the user can create the confs before to run E (requires betatest), also tell that the conf needs to be saved from the app
                     fi
                 fi
             fi
