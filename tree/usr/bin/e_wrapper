@@ -114,7 +114,7 @@ load_multiscreens_configuration(){
                 . "$file"
                 # TODO implement which screen is the primary one
 
-                if timeout 180 zenity --question --text="$( eval_gettext "Move your mouse among your screens to verify the settings. Do you want to always load this configuration when starting Elive?" )" ; then
+                if timeout 180 zenity --question --text="$( eval_gettext "Verify your settings by moving your mouse among your screens. Do you want to always load this configuration when starting Elive?" )" ; then
                     conf_multiscreens_last_autoload_wanted="yes"
                 else
                     conf_multiscreens_last_autoload_wanted="no"
@@ -133,32 +133,45 @@ load_multiscreens_configuration(){
             # TODO: if multiple screens connected are found and there's no conf, ask if run arandr NOW so the user can create the confs before to run E (requires betatest), also tell that the conf needs to be saved from the app
         fi
     else
-        if timeout 180 zenity --question --text="$( eval_gettext "You have multiple screens connected, do you want to configure them optimally for Elive?" )" ; then
-            timeout 120 zenity --text="$( eval_gettext "Use the next tool to configure them. Then make sure to save its configuration so that Elive can use it when starting the desktop." )"
-            # configure
-            arandr
+        if ! [[ "$conf_multiscreens_last_autoload_wanted" = "no" ]] ; then
+            if timeout 180 zenity --question --text="$( eval_gettext "You have multiple screens connected, do you want to use them optimally for Elive?" )" ; then
+                timeout 120 zenity --text="$( eval_gettext "Use the next tool to configure them. Then make sure to click in save your configuration so that Elive can use it when starting the desktop." )"
+                # configure
+                arandr
 
-            if [[ -d "$HOME/.screenlayout" ]] ; then
-                conf="$( find "$HOME/.screenlayout/" -type f -printf "%T@ %p\n" | sort -n | tail -n 1 )"
-                file="$( echo "$conf" | cut -d' ' -f 2- | tail -n 1 )"
-                datestamp="$( echo "$conf" | cut -d' ' -f 1- | tail -n 1 )"
-            fi
+                if [[ -d "$HOME/.screenlayout" ]] ; then
+                    conf="$( find "$HOME/.screenlayout/" -type f -printf "%T@ %p\n" | sort -n | tail -n 1 )"
+                    file="$( echo "$conf" | cut -d' ' -f 2- | tail -n 1 )"
+                    datestamp="$( echo "$conf" | cut -d' ' -f 1- | tail -n 1 )"
+                fi
 
-            if [[ -z "$conf" ]] ; then
-                if timeout 180 zenity --question --text="$( eval_gettext "You don't have saved any configuration in the default directory, so Elive cannot use it at start to remember your screens setup in the optimal way. Do you want to try again?" )" ; then
-                    # configure
-                    arandr
-                    # load new conf
-                    if [[ -d "$HOME/.screenlayout" ]] ; then
-                        conf="$( find "$HOME/.screenlayout/" -type f -printf "%T@ %p\n" | sort -n | tail -n 1 )"
-                        file="$( echo "$conf" | cut -d' ' -f 2- | tail -n 1 )"
-                        datestamp="$( echo "$conf" | cut -d' ' -f 1- | tail -n 1 )"
+                if [[ -z "$conf" ]] ; then
+                    if timeout 180 zenity --question --text="$( eval_gettext "You don't have saved any configuration with the tool, so Elive cannot use it to remember your screens setup in the optimal way. Do you want to try again?" )" ; then
+                        # configure
+                        arandr
+                        # load new conf
+                        if [[ -d "$HOME/.screenlayout" ]] ; then
+                            conf="$( find "$HOME/.screenlayout/" -type f -printf "%T@ %p\n" | sort -n | tail -n 1 )"
+                            file="$( echo "$conf" | cut -d' ' -f 2- | tail -n 1 )"
+                            datestamp="$( echo "$conf" | cut -d' ' -f 1- | tail -n 1 )"
+                        fi
                     fi
                 fi
             fi
 
             # if we still no having conf, forget about it
-            if [[ -z "$conf" ]] ; then
+            if [[ -n "$conf" ]] ; then
+                # TODO: when elive-skel is used or e17 confs restarted, delete the screens configurations too
+                # TODO: e17-restart should use elive-skel instead of a force delete?
+                timeout 60 zenity --info --text="$( eval_gettext "Perfect, Elive will use this configuration from now when your desktop starts, if you want to stop loading it just delete the configurations from their directory:" )"
+
+                if [[ -x "$file" ]] ; then
+                    conf_multiscreens_last="$conf"
+                    el_config_save "conf_multiscreens_last"
+                else
+                    el_error "configuration file not found or not executable: $file"
+                fi
+            else
                 conf_multiscreens_last_autoload_wanted="no"
                 el_config_save "conf_multiscreens_last_autoload_wanted"
 
