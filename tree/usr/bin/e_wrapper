@@ -199,8 +199,23 @@ load_multiscreens_configuration(){
             # if we still no having conf, forget about it
             if [[ -n "$conf" ]] ; then
                 # TODO: when elive-skel is used or e17-confs restarted, delete the screens configurations too
-                # TODO: e17-confs requires a configurator for multiscreens, in other words, a pager for every extra screen
+                # TODO: e17-confs requires configurations for multiscreens, in other words:
+                    # a pager for every extra screen, this will require betatests with E restarted
+                    # an ibox
+                        # betatest new confs creation
+                    # remove randr module loading
                 # TODO: e17-restart should use elive-skel instead of a force delete?
+                # TODO: new screens configuration always require a new E clean conf, so reset it
+                # TODO: we should remove the xrandr e-module to make it work correctly ? (?)
+                    # well, its buggy and useless, it can also break the confs, better to remove it yeah
+                    # include it in a hook of elive-upgrade that removes the module with eremote
+                    # with reboots? how it deales it
+                # TODO: betatest games restoring states
+                # TODO: betatest ecomorph dealing
+                # TODO: betatest: with system -> reboots, is my DIMM always reduced? is not the e17-conf already meant to not do that??
+                # XXX BUG: (not related to the emodule xrandr), but when the desktop from a reboot with a previous one-screen state, the one-screen configuration is saved somewhat... we NEED to run the xrandr script again AFTER to have loaded the desktop, in e17 xdg hooks reconfgurations one, should implement a same code to know if we wish to load that xrandr configuration and load it
+                # FIXME the configurator without window-manager is not easy to use and looks broken, so i can: use a temporal window manager, OR tell the user the exact steps
+                # TODO: if multiscreens and ecomorph loading, tell the user that it doesnt works as expected, and that can help impriving this coding
 
                 if [[ -x "$file" ]] ; then
 
