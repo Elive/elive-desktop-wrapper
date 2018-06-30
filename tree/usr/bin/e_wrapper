@@ -163,8 +163,7 @@ load_multiscreens_configuration(){
             conf_multiscreens_last="$conf"
             el_config_save "conf_multiscreens_last"
 
-            # TODO: verify with xrandr that we still having the correct monitors for the configuration when loading it (list actual screens and save that conf to compare too) - save a variable with their list sorted
-            # FIXME: if this works, disable the randr module from enlightenment? (what if we exit from games? try this in tower by loading/unloading the module)
+            # FIXME: disable the randr module from enlightenment? (what if we exit from games? try this in tower by loading/unloading the module)
             # maybe we can add a watcher here to know about that? no... we need to know that the game exited!
         fi
 
@@ -199,7 +198,8 @@ load_multiscreens_configuration(){
 
             # if we still no having conf, forget about it
             if [[ -n "$conf" ]] ; then
-                # TODO: when elive-skel is used or e17 confs restarted, delete the screens configurations too
+                # TODO: when elive-skel is used or e17-confs restarted, delete the screens configurations too
+                # TODO: e17-confs requires a configurator for multiscreens, in other words, a pager for every extra screen
                 # TODO: e17-restart should use elive-skel instead of a force delete?
 
                 if [[ -x "$file" ]] ; then
