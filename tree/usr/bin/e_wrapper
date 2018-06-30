@@ -77,11 +77,17 @@ load_multiscreens_configuration(){
     local conf datestamp file connectedOutputs activeOutput primary
 
     # get info from xrandr
-    connectedOutputs="$( LC_ALL="$EL_LC_EN" xrandr | grep " connected" | sed -e "s/\([A-Z0-9]\+\) connected.*/\1/")"
+    connectedOutputs="$( LC_ALL="$EL_LC_EN" xrandr | grep " connected" | sed -e "s/\([A-Z0-9]\+\) connected.*/\1/" )"
     #activeOutput="$( LC_ALL="$EL_LC_EN" xrandr | grep -E " connected (primary )?[1-9]+" | sed -e "s/\([A-Z0-9]\+\) connected.*/\1/")" # im not sure what this does but dont looks to work, not always the screen is set as primary, hum
 
     if ! [[ "$( echo "$connectedOutputs" | wc -l )" -gt 1 ]] || [[ -z "$connectedOutputs" ]] ; then
         return
+    fi
+
+    # list of screens known
+    if [[ -z "$conf_multiscreens_last_screens_list" ]] ; then
+        conf_multiscreens_last_screens_list="$( echo "$connectedOutputs" | sort )"
+        el_config_save "conf_multiscreens_last_screens_list"
     fi
 
     # check for arandr configurations
@@ -91,18 +97,27 @@ load_multiscreens_configuration(){
         #datestamp="$( echo "$conf" | cut -d' ' -f 1- | tail -n 1 )"
     fi
 
-    # TODO: possible to know if a screen is connected but not powered-on ? (showing no resolutions?)
-    # TODO: how affects the plugging a screen when the computer is already running and booted in the graphical system? is there any launcher? or autodetection?
 
     # only if we have valid configurations
     if [[ -s "$file" ]] && [[ -x "$file" ]] && grep -qs "^xrandr" "$file" ; then
 
         # just load if wanted
         if [[ "$conf_multiscreens_last_autoload_wanted" = "yes" ]] ; then
-            if [[ -n "$conf_multiscreens_last" ]] && [[ "$conf" = "$conf_multiscreens_last" ]] ; then
-                ( . "$file" )
-                # nothing more to do
-                return
+
+            # only if we have the same screens connected
+            if [[ "$conf_multiscreens_last_screens_list" = "$( echo "$connectedOutputs" | sort )" ]] ; then
+
+                if [[ -n "$conf_multiscreens_last" ]] && [[ "$conf" = "$conf_multiscreens_last" ]] ; then
+                    ( . "$file" )
+                    # nothing more to do
+                    return
+                fi
+            else
+                # cleanups, because we don't know what to do with different screens - so it will ask again about configuring screens (generate new conf)
+                conf_multiscreens_last=""
+                conf_multiscreens_last_autoload_wanted=""
+                el_config_save "conf_multiscreens_last"
+                el_config_save "conf_multiscreens_last_autoload_wanted"
             fi
         fi
 
@@ -148,15 +163,16 @@ load_multiscreens_configuration(){
             conf_multiscreens_last="$conf"
             el_config_save "conf_multiscreens_last"
 
-            # save configuration to know that we want to load it unless has changed
-            # verify with xrandr that we still having the correct monitors for the configuration when loading it (list actual screens and save that conf to compare too)
+            # TODO: verify with xrandr that we still having the correct monitors for the configuration when loading it (list actual screens and save that conf to compare too) - save a variable with their list sorted
             # FIXME: if this works, disable the randr module from enlightenment? (what if we exit from games? try this in tower by loading/unloading the module)
             # maybe we can add a watcher here to know about that? no... we need to know that the game exited!
-            # TODO: if multiple screens connected are found and there's no conf, ask if run arandr NOW so the user can create the confs before to run E (requires betatest), also tell that the conf needs to be saved from the app
         fi
+
     else
+        # if we don't have a valid configuration, ask for a new one
         if ! [[ "$conf_multiscreens_last_autoload_wanted" = "no" ]] ; then
-            if timeout 180 zenity --question --text="$( eval_gettext "You have multiple screens connected, do you want to use them optimally for Elive?" )" ; then
+            if timeout 180 zenity --question --text="$( eval_gettext "You have multiple screens connected, do you want to use them optimally with Elive? (suggested)" )" ; then
+
                 timeout 120 zenity --text="$( eval_gettext "Use the next tool to configure them. Then make sure to click in save your configuration so that Elive can use it when starting the desktop." )"
                 # configure
                 arandr
@@ -187,6 +203,7 @@ load_multiscreens_configuration(){
                 # TODO: e17-restart should use elive-skel instead of a force delete?
 
                 if [[ -x "$file" ]] ; then
+
                     # set the primary screen
                     if ! grep -qs " --primary" "$file" ; then
                         while true
@@ -206,10 +223,13 @@ load_multiscreens_configuration(){
                         # update timestamps since we modify the file
                         conf="$( find "$HOME/.screenlayout/" -type f -printf "%T@ %p\n" | sort -n | tail -n 1 )"
                         el_config_save "conf"
-
-                        # done
-                timeout 60 zenity --info --text="$( eval_gettext "Perfect, Elive will use this configuration from now when your desktop starts, if you want to stop loading it just delete the configurations from their directory:" )"
                     fi
+
+                    # load and ask
+                    ( . "$file" )
+
+                    # done
+                    timeout 60 zenity --info --text="$( eval_gettext "Perfect, Elive will use this configuration from now when your desktop starts, if you want to stop loading it just delete the configurations from their directory:" )"
 
                     conf_multiscreens_last="$conf"
                     el_config_save "conf_multiscreens_last"
