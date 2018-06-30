@@ -724,6 +724,7 @@ main(){
     verify_desktop_health
 
     #load_multiscreens_configuration
+    elive-multiscreens -l -q -p
 
 
     rm -f "$HOME/.xsession-errors"
