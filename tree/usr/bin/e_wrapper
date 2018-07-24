@@ -112,6 +112,77 @@ check_updated_configurations(){
 
 }
 
+dbus_get_new_address(){
+    local pong displayid PID address
+
+    # Note: this may be not a very reliable way to get the dbus address, (not tested) what if more than one desktop run?
+    # update: having another X session loses our eremote pings, no matter if we have this dbus address or not
+
+    # first check, do we need to update it?
+    #pong="$( LC_ALL=C timeout 5 enlightenment_remote -ping 2>/dev/null || true )"
+    pong="$( LC_ALL=C DBUS_SESSION_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS" timeout 5 enlightenment_remote -ping 2>/dev/null || true )"
+
+    # this is the most reliable and "real" way that we can have to get the address (fetched directly from the environment variable of the system)
+    if [[ "$pong" != *"pong" ]] ; then
+        if [[ -s "$HOME/.cache/dbus-session-address-last.txt" ]] ; then
+            address="$( cat "$HOME/.cache/dbus-session-address-last.txt" | tail -1 )"
+            pong="$( LC_ALL=C DBUS_SESSION_BUS_ADDRESS="$address" timeout 5 enlightenment_remote -ping 2>/dev/null || true )"
+        fi
+    fi
+
+    if [[ "$pong" != *"pong" ]] ; then
+        for PID in $( pgrep gnome-keyring )
+        do
+            [[ -z "$PID" ]] && continue
+            pong="$( DBUS_SESSION_BUS_ADDRESS="$(grep -z DBUS_SESSION_BUS_ADDRESS /proc/$PID/environ 2>/dev/null | cut -d= -f1- )" timeout 5 enlightenment_remote -ping 2>/dev/null )"
+
+            if [[ "$pong" = *"pong" ]] ; then
+                address="$(grep -z DBUS_SESSION_BUS_ADDRESS /proc/$PID/environ 2>/dev/null | cut -d= -f1- )"
+                break
+            fi
+        done
+    fi
+
+    if [[ "$pong" != *"pong" ]] ; then
+        displayid="${DISPLAY##*:}"
+        displayid="${displayid%%.*}"
+
+        # this is not enough, because by default we use gnome-keyring which changes the address
+        pong="$( eval $( cat "$HOME/.dbus/session-bus/$(cat /var/lib/dbus/machine-id)-${displayid}" | grep --color=never "^DBUS_SESSION_BUS_ADDRESS=" ) enlightenment_remote -ping 2>/dev/null )"
+
+        if [[ "$pong" = *"pong" ]] ; then
+            address="$( cat "$HOME/.dbus/session-bus/$(cat /var/lib/dbus/machine-id)-${displayid}" | grep --color=never "^DBUS_SESSION_BUS_ADDRESS=" | sed -e 's|^.*ESS=||g' )"
+        fi
+    fi
+
+    # if we still have not, get the most reliable option (user may be in a console and thats why we cannot ping, so fallback to this option then)
+    if [[ "$pong" != *"pong" ]] ; then
+        if [[ -s "$HOME/.cache/dbus-session-address-last.txt" ]] ; then
+            address="$( cat "$HOME/.cache/dbus-session-address-last.txt" | tail -1 )"
+        fi
+    fi
+    # export result
+    if [[ -n "$address" ]] ; then
+        export DBUS_SESSION_BUS_ADDRESS="$address"
+    fi
+}
+
+cleanups_pre(){
+    local file
+    # remove old unused sockets
+    while read -ru 3 file
+    do
+        # checks if there's a process using the socked and if not, removes it
+        if echo "$file" | grep -qsE -- "-($( pidof enlightenment_start enlightenment | sed -e 's/ /|/g' ))\|" ; then
+            true
+            #echo "found $file"
+        else
+            true
+            rm -f "$file" || true
+        fi
+    done 3<<< "$( find /tmp/e-"${USER}"@*/ -type s 2>/dev/null )"
+    rmdir /tmp/e-"${USER}"@* 2>/dev/null || true
+}
 restart_desktop_configuration(){
     # elive-skel upgrade {{{
     if ((is_live)) ; then
@@ -384,6 +455,11 @@ restart_enlightenment(){
         #rm -f "$HOME/.e-crashdump.txt"
     fi
 
+    # restart was needed, so check if we have a new address
+    if ((is_e_restarted)) ; then
+        dbus_get_new_address
+    fi
+
 
     # }}}
 }
@@ -392,6 +468,7 @@ watch_enlightenment_blocked(){
     local pong count
 
     # wait for things initiated {{{
+    # note: my E requires 90 seconds to load (Xmodfiers bloated)
     for count in $( seq 40 ) ; do
         pong="$( LC_ALL=C timeout 5 enlightenment_remote -ping 2>/dev/null || true )"
         if [[ "$pong" = *"pong" ]] ; then
@@ -401,6 +478,11 @@ watch_enlightenment_blocked(){
         fi
     done
 
+    # we need to have this variable set in order to be able to ping
+    if [[ -z "$DBUS_SESSION_BUS_ADDRESS" ]] || [[ "$pong" != *"pong" ]] ; then
+        dbus_get_new_address
+    fi
+
     # }}}
     while true
     do
@@ -409,7 +491,8 @@ watch_enlightenment_blocked(){
         # note: if E is running with a slow process, it can feel blocked too (like programmers-kb-layout-switch)
         # max time to see if E is not blocked: 48 seconds, we should not have anything pausing E for more than this time
         for count in $( seq $(( $limit_paused_time / 2 )) ) ; do
-            pong="$( LC_ALL=C timeout 5 enlightenment_remote -ping 2>/dev/null || true )"
+            #pong="$( LC_ALL=C timeout 5 enlightenment_remote -ping 2>/dev/null || true )"
+            pong="$( LC_ALL=C DBUS_SESSION_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS" timeout 5 enlightenment_remote -ping 2>/dev/null || true )"
 
             # only for debug purposes: logs
             #echo "ping: $pong | count: $count | dbus: $DBUS_SESSION_BUS_ADDRESS | DISPLAY: $DISPLAY | XAUTHORITY: $XAUTHORITY | E_IPC_SOCKET: $E_IPC_SOCKET" | tee -a /tmp/e-${USER}-logs.txt
@@ -433,8 +516,22 @@ watch_enlightenment_blocked(){
 
         # if we didn't had a pong in our max amount of attemps, restart
         if ! [[ "$pong" = *"pong" ]] ; then
-            # note: this could happen too if dbus is not running under E
-            restart_enlightenment
+            # if we go to another TTY, seems like eremote ping stops to work, so make sure that just don't have other E sessions running instead of going to restart the desktops:
+            # also, make sure that the user is in a TTY
+            e_start_pids_all="$( pidof enlightenment_start )"
+            if [[ -n "$e_start_pids_all" ]] && [[ "$( echo "$e_start_pids_all" | wc -w )" -gt 1 ]] ; then
+                # we have opened more than one E sessions (and/or different users), ignore entirely the lack of ping and continue
+                true
+            else
+                # also check that the user is not simply in a console
+                if cat /sys/class/tty/tty0/active 2>/dev/null | grep -qsE "^tty(1|2|3|4|5|6)$" ; then
+                    # user is walking in the consoles, ignore the lack of pings and continue
+                    true
+                else
+                    # note: this could happen too if dbus is not running under E
+                    restart_enlightenment
+                fi
+            fi
         fi
 
         #all good, don't bottleneck per loop
@@ -447,9 +544,7 @@ watch_enlightenment_blocked(){
             unset is_backup_wanted
 
             if [[ -d "$HOME/.e" ]] ; then
-                # wait a bit more to correctly finish startups
-                sleep 10
-                enlightenment_remote -save
+                DBUS_SESSION_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS" enlightenment_remote -save
 
                 cd "$HOME/.e"
                 bkp remove 1>/dev/null 2>&1 || true
@@ -510,6 +605,8 @@ main(){
         #rm -f e.cfg.src
     #fi
 
+    cleanups_pre
+
     el_config_get
 
     check_updated_configurations
@@ -542,7 +639,8 @@ main(){
     fi
 
     # wait that desktop finishes to start before to run checkers
-    sleep 12
+    # no needed: we have a first pre-ping wait
+    #sleep 12
 
     # this watcher stops after no more enlightenment process is running
     watch_enlightenment_blocked
