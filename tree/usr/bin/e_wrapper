@@ -87,13 +87,14 @@ check_updated_configurations(){
         if [[ "$package_e17conf_installed_version_prev" ]] && [[ -d "$HOME/.e" ]] ; then
             if [[ "${package_e17conf_installed_version}" != "$package_e17conf_installed_version_prev" ]] ; then
                 # ask if upgrade the E confs
+                gtk_set_theme
                 if timeout 180 zenity --question --text="$( eval_gettext "Upgrade Desktop? New configuration updates found! It's very suggested to upgrade it to get the Elive features, you will lose your personal settings like modules, keybindings, or desktop configurations will be removed. Upgrade it?" )" ; then
 
                     cd "$HOME/.e"
                     bkp remove 1>/dev/null 2>&1 || true
                     cd
 
-                    elive-skel upgrade ".e"
+                    NOREPORTS=1 elive-skel upgrade ".e"
                     rm -rf "$HOME/.cache/efreet"
                     sync
                     is_conf_upgraded=1
@@ -109,7 +110,12 @@ check_updated_configurations(){
             el_config_save "package_e17conf_installed_version_prev"
         fi
     fi
+}
 
+gtk_set_theme(){
+    if [[ -s "$HOME/.xsettingsd" ]] && [[ -x "/usr/bin/xsettingsd" ]] ; then
+        ( xsettingsd 1>/dev/null 2>&1 & )
+    fi
 }
 
 dbus_get_new_address(){
@@ -198,7 +204,7 @@ restart_desktop_configuration(){
             bkp get
             cd
         else
-            elive-skel upgrade ".e"
+            NOREPORTS=1 elive-skel upgrade ".e"
             rm -rf "$HOME/.cache/efreet"
         fi
     fi
@@ -235,6 +241,7 @@ verify_desktop_health(){
         # check and show specific messages about crashes before to suggest anything
         crashes_messages
 
+        gtk_set_theme
         if timeout 40 zenity --question --text="$( eval_gettext "Your desktop seems to have recently crashed too much, do you want to restart to a new clean configuration?" )" ; then
             restart_desktop_configuration
         fi
@@ -518,9 +525,8 @@ watch_enlightenment_blocked(){
         if ! [[ "$pong" = *"pong" ]] ; then
             # if we go to another TTY, seems like eremote ping stops to work, so make sure that just don't have other E sessions running instead of going to restart the desktops:
             # also, make sure that the user is in a TTY
-            e_start_pids_all="$( pidof enlightenment_start )"
-            if [[ -n "$e_start_pids_all" ]] && [[ "$( echo "$e_start_pids_all" | wc -w )" -gt 1 ]] ; then
-                # we have opened more than one E sessions (and/or different users), ignore entirely the lack of ping and continue
+            if ! [[ -s "/home/thana/.e/e17/config/standard/e.1.cfg" ]] ; then
+                # we don't have yet finished to set up E, don't restart
                 true
             else
                 # also check that the user is not simply in a console
@@ -528,8 +534,14 @@ watch_enlightenment_blocked(){
                     # user is walking in the consoles, ignore the lack of pings and continue
                     true
                 else
-                    # note: this could happen too if dbus is not running under E
-                    restart_enlightenment
+                    e_start_pids_all="$( pidof enlightenment_start )"
+                    if [[ -n "$e_start_pids_all" ]] && [[ "$( echo "$e_start_pids_all" | wc -w )" -gt 1 ]] ; then
+                        # we have opened more than one E sessions (and/or different users), ignore entirely the lack of ping and continue
+                        true
+                    else
+                        # note: this could happen too if dbus is not running under E
+                        restart_enlightenment
+                    fi
                 fi
             fi
         fi
@@ -621,6 +633,8 @@ main(){
     # not implemented yet
     #verify_configuration_validity
 
+    # stop daemon after to have used dialogs and before to start the desktop
+    killall xsettingsd 2>/dev/null 1>&2 || true
 
     #
     # Start E
