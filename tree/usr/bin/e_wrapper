@@ -525,8 +525,9 @@ watch_enlightenment_blocked(){
         if ! [[ "$pong" = *"pong" ]] ; then
             # if we go to another TTY, seems like eremote ping stops to work, so make sure that just don't have other E sessions running instead of going to restart the desktops:
             # also, make sure that the user is in a TTY
-            if ! [[ -s "/home/thana/.e/e17/config/standard/e.1.cfg" ]] ; then
+            if ! [[ -s "/home/thana/.e/e17/config/standard/e.1.cfg" ]] || ps ux | grep -v grep | grep -qsE "/usr/lib/(deliver|user-manager)/hooks.d/e17-wizard" ; then
                 # we don't have yet finished to set up E, don't restart
+                # or user is running a wizard hook (like a waiting dialog window)
                 true
             else
                 # also check that the user is not simply in a console
