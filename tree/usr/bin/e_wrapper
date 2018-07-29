@@ -482,6 +482,10 @@ watch_enlightenment_blocked(){
             break
         else
             LC_ALL=C sleep 2
+            # do not waste time if the graphical system is unable to launch in live mode
+            if ((is_live)) ; then
+                break
+            fi
         fi
     done
 
