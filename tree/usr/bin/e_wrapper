@@ -535,8 +535,9 @@ watch_enlightenment_blocked(){
                 true
             else
                 # also check that the user is not simply in a console
-                if cat /sys/class/tty/tty0/active 2>/dev/null | grep -qsE "^tty(1|2|3|4|5|6)$" ; then
+                if cat /sys/class/tty/tty0/active 2>/dev/null | grep -qsE "^tty(1|2|3|4|5|6|8|9|10|11|12)$" ; then
                     # user is walking in the consoles, ignore the lack of pings and continue
+                    # if user is switching to another user (lightdm starting other user session, but waiting on the login manager), the tty shown is tty8, so we should include any tty except tty7
                     true
                 else
                     e_start_pids_all="$( pidof enlightenment_start )"
