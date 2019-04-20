@@ -128,18 +128,52 @@ dbus_get_new_address(){
 
     # first check, do we need to update it?
     #pong="$( LC_ALL=C timeout 5 enlightenment_remote -ping 2>/dev/null || true )"
-    pong="$( LC_ALL=C DBUS_SESSION_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS" timeout 5 enlightenment_remote -ping 2>/dev/null || true )"
+    if [[ -n "$DBUS_SESSION_BUS_ADDRESS" ]] ; then
+        pong="$( LC_ALL=C DBUS_SESSION_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS" timeout 5 enlightenment_remote -ping 2>/dev/null || true )"
 
-    # this is the most reliable and "real" way that we can have to get the address (fetched directly from the environment variable of the system)
-    if [[ "$pong" != *"pong" ]] ; then
-        if [[ -s "$HOME/.cache/dbus-session-address-last.txt" ]] ; then
-            address="$( cat "$HOME/.cache/dbus-session-address-last.txt" | tail -1 )"
-            pong="$( LC_ALL=C DBUS_SESSION_BUS_ADDRESS="$address" timeout 5 enlightenment_remote -ping 2>/dev/null || true )"
+        if [[ "$pong" != *"pong" ]] ; then
+            unset DBUS_SESSION_BUS_ADDRESS address pong
         fi
     fi
 
-    if [[ "$pong" != *"pong" ]] ; then
-        for PID in $( pgrep gnome-keyring )
+    # this is the most reliable and "real" way that we can have to get the address (fetched directly from the environment variable of the system)
+    if [[ -z "$DBUS_SESSION_BUS_ADDRESS" ]] ; then
+        if [[ -s "$HOME/.cache/dbus-session-address-last.txt" ]] ; then
+            address="$( cat "$HOME/.cache/dbus-session-address-last.txt" | tail -1 )"
+            pong="$( LC_ALL=C DBUS_SESSION_BUS_ADDRESS="$address" timeout 5 enlightenment_remote -ping 2>/dev/null || true )"
+
+            if [[ "$pong" = *"pong" ]] ; then
+                export DBUS_SESSION_BUS_ADDRESS="$address"
+            else
+                unset address DBUS_SESSION_BUS_ADDRESS pong
+            fi
+        fi
+    fi
+
+    # correct place where it should be stored
+    if [[ -z "$DBUS_SESSION_BUS_ADDRESS" ]] ; then
+        displayid="${DISPLAY##*:}"
+        displayid="${displayid%%.*}"
+
+        # this is not enough, because by default we use gnome-keyring which changes the address
+        #pong="$( eval $( cat "$HOME/.dbus/session-bus/$(cat /var/lib/dbus/machine-id)-${displayid}" | grep --color=never "^DBUS_SESSION_BUS_ADDRESS=" ) enlightenment_remote -ping 2>/dev/null )"
+        dbus_session_file="$HOME/.dbus/session-bus/$(cat /var/lib/dbus/machine-id)-${displayid}"
+
+        if grep -qs "DBUS_SESSION_BUS_ADDRESS" "$dbus_session_file" ; then
+            source "$dbus_session_file"
+            export DBUS_SESSION_BUS_ADDRESS DBUS_SESSION_BUS_PID
+        fi
+
+        pong="$( LC_ALL=C DBUS_SESSION_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS" timeout 5 enlightenment_remote -ping 2>/dev/null || true )"
+
+        if ! [[ "$pong" = *"pong" ]] ; then
+            unset address DBUS_SESSION_BUS_ADDRESS DBUS_SESSION_BUS_PID pong
+        fi
+    fi
+
+    # final alternative way
+    if [[ -z "$DBUS_SESSION_BUS_ADDRESS" ]] ; then
+        for PID in $( pgrep gnome-keyring ) $e_start_pid
         do
             [[ -z "$PID" ]] && continue
             pong="$( DBUS_SESSION_BUS_ADDRESS="$(grep -z DBUS_SESSION_BUS_ADDRESS /proc/$PID/environ 2>/dev/null | cut -d= -f1- )" timeout 5 enlightenment_remote -ping 2>/dev/null )"
@@ -149,29 +183,26 @@ dbus_get_new_address(){
                 break
             fi
         done
-    fi
-
-    if [[ "$pong" != *"pong" ]] ; then
-        displayid="${DISPLAY##*:}"
-        displayid="${displayid%%.*}"
-
-        # this is not enough, because by default we use gnome-keyring which changes the address
-        pong="$( eval $( cat "$HOME/.dbus/session-bus/$(cat /var/lib/dbus/machine-id)-${displayid}" | grep --color=never "^DBUS_SESSION_BUS_ADDRESS=" ) enlightenment_remote -ping 2>/dev/null )"
 
         if [[ "$pong" = *"pong" ]] ; then
-            address="$( cat "$HOME/.dbus/session-bus/$(cat /var/lib/dbus/machine-id)-${displayid}" | grep --color=never "^DBUS_SESSION_BUS_ADDRESS=" | sed -e 's|^.*ESS=||g' )"
+            export DBUS_SESSION_BUS_ADDRESS="$address"
+        else
+            unset address pong
         fi
     fi
 
+
     # if we still have not, get the most reliable option (user may be in a console and thats why we cannot ping, so fallback to this option then)
-    if [[ "$pong" != *"pong" ]] ; then
-        if [[ -s "$HOME/.cache/dbus-session-address-last.txt" ]] ; then
-            address="$( cat "$HOME/.cache/dbus-session-address-last.txt" | tail -1 )"
-        fi
-    fi
+    #if [[ "$pong" != *"pong" ]] ; then
+        #if [[ -s "$HOME/.cache/dbus-session-address-last.txt" ]] ; then
+            #DBUS_SESSION_BUS_ADDRESS="$( cat "$HOME/.cache/dbus-session-address-last.txt" | tail -1 )"
+        #fi
+    #fi
+
     # export result
-    if [[ -n "$address" ]] ; then
+    if [[ -n "$DBUS_SESSION_BUS_ADDRESS" ]] ; then
         export DBUS_SESSION_BUS_ADDRESS="$address"
+        echo "$DBUS_SESSION_BUS_ADDRESS" > "$HOME/.cache/dbus-session-address-last.txt"
     fi
 }
 
@@ -190,6 +221,9 @@ cleanups_pre(){
         fi
     done 3<<< "$( find /tmp/e-"${USER}"@*/ -type s 2>/dev/null )"
     rmdir /tmp/e-"${USER}"@* 2>/dev/null || true
+
+    # remove last dbus address cached, since we are going to create a new one
+    rm -f "$HOME/.cache/dbus-session-address-last.txt"
 }
 restart_desktop_configuration(){
     # elive-skel upgrade {{{
