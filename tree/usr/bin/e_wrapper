@@ -201,7 +201,6 @@ dbus_get_new_address(){
 
     # export result
     if [[ -n "$DBUS_SESSION_BUS_ADDRESS" ]] ; then
-        export DBUS_SESSION_BUS_ADDRESS="$address"
         echo "$DBUS_SESSION_BUS_ADDRESS" > "$HOME/.cache/dbus-session-address-last.txt"
     fi
 }
