@@ -701,7 +701,8 @@ main(){
     watch_enlightenment_blocked
 
     # watcher checks the pid so this should always finish correctly, but we need to wait for E to close
-    wait
+    # update: if the watcher works correctly we should not reach this step never, don't use the wait since can fail in buster
+    #wait
 
     # trigger correctly the exit callbacks
     exit 0
