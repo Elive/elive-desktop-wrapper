@@ -85,8 +85,8 @@ check_updated_configurations(){
 
 
     if [[ -n "$package_e17conf_installed_version" ]] ; then
-        if [[ "$package_e17conf_installed_version_prev" ]] && [[ -d "$HOME/.e" ]] ; then
-            if [[ "${package_e17conf_installed_version}" != "$package_e17conf_installed_version_prev" ]] ; then
+        if [[ "$conf_package_e17conf_installed_version_prev" ]] && [[ -d "$HOME/.e" ]] ; then
+            if [[ "${package_e17conf_installed_version}" != "$conf_package_e17conf_installed_version_prev" ]] ; then
                 # ask if upgrade the E confs
                 gtk_set_theme
                 precache /usr/bin/enlightenment &
@@ -104,13 +104,13 @@ check_updated_configurations(){
                 fi
 
                 # remember the new version
-                package_e17conf_installed_version_prev="$package_e17conf_installed_version"
-                el_config_save "package_e17conf_installed_version_prev"
+                conf_package_e17conf_installed_version_prev="$package_e17conf_installed_version"
+                el_config_save "conf_package_e17conf_installed_version_prev"
             fi
         else
             # new conf, save it
-            package_e17conf_installed_version_prev="$package_e17conf_installed_version"
-            el_config_save "package_e17conf_installed_version_prev"
+            conf_package_e17conf_installed_version_prev="$package_e17conf_installed_version"
+            el_config_save "conf_package_e17conf_installed_version_prev"
         fi
     fi
 }
@@ -246,8 +246,8 @@ restart_desktop_configuration(){
     fi
 
     # restart counter and variable
-    is_e_restarted_fast_too_much=0
-    el_config_save "is_e_restarted_fast_too_much"
+    conf_is_e_restarted_fast_too_much=0
+    el_config_save "conf_is_e_restarted_fast_too_much"
     # - elive-skel upgrade }}}
     # notify user {{{
     if el_check_version_is_days_recent 40 ; then
@@ -271,7 +271,7 @@ verify_desktop_health(){
     fi
 
     # TODO FIXME: seems like this code is only run when the destkop starts? we want it to be run in loop too, so let's enalbe this for the next 3.x beta versions (check if destkop restarted too much in order to restart configurations)
-    if ((is_e_restarted_fast_too_much)) ; then
+    if ((conf_is_e_restarted_fast_too_much)) ; then
         #el_speak_text "desktop restarted too much, suggested to start with a new configuration"
 
         # check and show specific messages about crashes before to suggest anything
@@ -283,8 +283,8 @@ verify_desktop_health(){
         fi
 
         # restart counter
-        is_e_restarted_fast_too_much=0
-        el_config_save "is_e_restarted_fast_too_much"
+        conf_is_e_restarted_fast_too_much=0
+        el_config_save "conf_is_e_restarted_fast_too_much"
 
         el_warning "E restarted fastly too much - versions:\n$(dpkg -l | grep -E "^ii.*(libefl1|e17-stable|e17|elive-tools|deliver|elive-desktop)" | awk '{print $2" : "$3}' )"
     else
@@ -332,14 +332,14 @@ verify_desktop_health(){
     #fi
     ## - verify configurations }}}
     ## restore desktop {{{
-    #if ((is_e_configuration_invalid)) ; then
+    #if ((conf_is_e_configuration_invalid)) ; then
         #if zenity --question --text="$( eval_gettext "Seems like your desktop has an invalid configuration. Do you want to restart to a new configuration?" )" ; then
             #restart_desktop_configuration
         #fi
 
         ## restart counter
-        #is_e_configuration_invalid=0
-        #el_config_save "is_e_configuration_invalid"
+        #conf_is_e_configuration_invalid=0
+        #el_config_save "conf_is_e_configuration_invalid"
     #fi
     ## - restore desktop }}}
 #}
@@ -366,16 +366,16 @@ crashes_watcher(){
         fi
 
         if [[ "$counter_crash_fast_amount" -gt "$limit_crash_amount" ]] ; then
-            is_e_restarted_fast_too_much=1
-            el_config_save "is_e_restarted_fast_too_much"
+            conf_is_e_restarted_fast_too_much=1
+            el_config_save "conf_is_e_restarted_fast_too_much"
         else
             # restart counter
-            is_e_restarted_fast_too_much=0
-            el_config_save "is_e_restarted_fast_too_much"
+            conf_is_e_restarted_fast_too_much=0
+            el_config_save "conf_is_e_restarted_fast_too_much"
         fi
 
         # too much restarts? check confs and tell the user
-        if ((is_e_restarted_fast_too_much)) ; then
+        if ((conf_is_e_restarted_fast_too_much)) ; then
             crashes_messages
         fi
     fi
@@ -685,12 +685,12 @@ main(){
     if ((is_live)) ; then
         # do not save logs in live mode, reduce disk usage (specially useful for persistence)
         TEXTDOMAIN="" \
-            is_e_restarted_fast_too_much="" \
+            conf_is_e_restarted_fast_too_much="" \
             enlightenment_start "$@" &
         e_start_pid="$!"
     else
         TEXTDOMAIN="" \
-            is_e_restarted_fast_too_much="" \
+            conf_is_e_restarted_fast_too_much="" \
             enlightenment_start "$@" 1>"$HOME/.xsession-errors" 2>&1 &
         e_start_pid="$!"
     fi
