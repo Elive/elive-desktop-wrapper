@@ -25,7 +25,7 @@ limit_crash_amount=4
 limit_crash_time=240 # previous crash happened in less than 4 minutes
 limit_logs_check="$(( 4 * 60 * 60 ))" # four hours
 limit_autoreload_check="$(( 4 * 24 * 60 * 60 ))" # 4 days
-limit_upgrader_check="$(( 23 * 60 * 60 ))" # each day
+#limit_upgrader_check="$(( 23 * 60 * 60 ))" # each day
 
 # limit of time that E can be paused before to be considered a block
 # FIXME: use bigger value if the computer is slow
@@ -50,7 +50,7 @@ fi
 
 counter_logs_time_last="$( LC_ALL=C  date +%s )"
 counter_autoreload_time_last="$( LC_ALL=C date +%s )"
-counter_upgrader_time_last="$( LC_ALL=C date +%s )"
+#counter_upgrader_time_last="$( LC_ALL=C date +%s )"
 pid_wrapper="$$"
 
 exit_ok(){
@@ -627,13 +627,14 @@ watch_enlightenment_blocked(){
         fi
 
         # run elive-upgrader if new things are found
-        if [[ "$counter_time_now" -gt "$(( $counter_upgrader_time_last + $limit_upgrader_check ))" ]] ; then
-            counter_upgrader_time_last="$( LC_ALL=C date +%s )"
-            # run elive-upgrader, only if user has it enabled on the autostart applications
-            if grep -qs "elive-upgrader" "$HOME/.e/e17/applications/startup/.order" ; then
-                elive-upgrader
-            fi
-        fi
+        # update: this conflicts with the tool launched in desktop, we don't need to run it here unless something critical is needed, disable for now. Requires: to run before desktop starts, a flag to know when a critical update is needed (and not a timer), etc... maybe something interactive or check modes
+        #if [[ "$counter_time_now" -gt "$(( $counter_upgrader_time_last + $limit_upgrader_check ))" ]] ; then
+            #counter_upgrader_time_last="$( LC_ALL=C date +%s )"
+            ## run elive-upgrader, only if user has it enabled on the autostart applications
+            #if grep -qs "elive-upgrader" "$HOME/.e/e17/applications/startup/.order" ; then
+                #elive-upgrader
+            #fi
+        #fi
 
     done
 }
