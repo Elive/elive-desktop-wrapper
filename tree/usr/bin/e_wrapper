@@ -47,6 +47,9 @@ fi
 if grep -qs "boot=live" "/proc/cmdline" ; then
     is_live=1
 fi
+if grep -qsi "ecorenovsync" "/proc/cmdline" ; then
+    export ECORE_NO_VSYNC=1
+fi
 
 counter_logs_time_last="$( LC_ALL=C  date +%s )"
 counter_autoreload_time_last="$( LC_ALL=C date +%s )"
