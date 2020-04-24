@@ -481,7 +481,7 @@ restart_enlightenment(){
     # }}}
     # notify user that E has been restarted by Elive {{{
     if ((is_e_restarted)) && ! ((is_silent)) ; then
-        #el_notify_user "Enlightnement Restarted" "Elive recovered a crash of your desktop saving your working state and opened windows. Thank you Elive!"
+        #el_notify "normal" "logo-elive" "Enlightnement Restarted" "Elive recovered a crash of your desktop saving your working state and opened windows. Thank you Elive!"
         # tell the user in a very nice fashion way
         if el_check_version_is_days_recent 14 ; then
             el_speak_text "ai-live desktop initiated recovery"
