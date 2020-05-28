@@ -267,12 +267,12 @@ restart_desktop_configuration(){
 verify_desktop_health(){
     # E seems like to be unusable due to too much crashes {{{
     if ! [[ -d "$HOME/.e" ]] ; then
-        return
+        return 0
     fi
     # no need to recover if new conf
     if ((is_conf_upgraded)) ; then
         unset is_conf_upgraded
-        return
+        return 0
     fi
 
     # TODO FIXME: seems like this code is only run when the destkop starts? we want it to be run in loop too, so let's enalbe this for the next 3.x beta versions (check if destkop restarted too much in order to restart configurations)
