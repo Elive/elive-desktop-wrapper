@@ -303,7 +303,7 @@ verify_desktop_health(){
 
     # was the shutdown forced?
     if [[ -e "/var/tmp/elivehealth/elive-system-shutdown-forced" ]] && grep -qs "^yes$" "/var/tmp/elivehealth/elive-system-shutdown-forced" ; then
-        if zenity --question --text="$( eval_gettext "Your computer has been forced shutdown, this is very bad for your data and it can also break your desktop configurations. Do you want to recover it from a last recent backup? Select Yes if you don't know." )" ; then
+        if zenity --question --text="$( eval_gettext "Your computer has shut down forced, this is very bad for your data and it can also break your desktop configurations. Do you want to recover it from the last recent backup? If you don't know, select Yes." )" ; then
             true
         fi
         # remove the verification file
