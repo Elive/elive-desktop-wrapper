@@ -259,7 +259,7 @@ restart_desktop_configuration(){
         el_speak_text "a-live desktop configuration upgraded"
     fi
 
-    timeout 50 zenity --info --text="$( eval_gettext "Your desktop configuration has been restored. The backup of the old configuration is available in:" )\n$HOME/.e.old"
+    timeout 50 zenity --info --text="$( eval_gettext "Your desktop configuration has been restored. The backup of the old desktop configuration is available in:" )\n$HOME/.e.old"
 
     # - notify user }}}
 }
@@ -303,7 +303,7 @@ verify_desktop_health(){
 
     # was the shutdown forced?
     if [[ -e "/var/tmp/elivehealth/elive-system-shutdown-forced" ]] && grep -qs "^yes$" "/var/tmp/elivehealth/elive-system-shutdown-forced" ; then
-        if zenity --question --text="$( eval_gettext "Your computer has shut down ungracefully. This is very bad for your data and can also break your desktop configurations. Do you want to recover it from the last recent backup? (If you don't know, select Yes.)" )" ; then
+        if zenity --question --text="$( eval_gettext "Your computer has been forcefully shut down. This is very bad for your data and can also break your desktop configurations. Do you want to recover a backup of it from the previously started desktop state? (If you don't know, select Yes.)" )" ; then
             true
         fi
         # remove the verification file
@@ -354,7 +354,7 @@ crashes_messages(){
 
         # some strange ATI cards that reports crashes:
         if grep -qs "dri/r300_dri\.so" "$HOME/.e-crashdump.txt" ; then
-            notify-send -t 90000 "Desktop Drivers" "$( eval_gettext "Elive detected that you have an ATI graphic card, these cards are known in Linux by their multiple issues. We suggest to replace it for an Nvidia card if possible. Another option if you still have problems is to disable the hardware accelerated rendering for your desktop and switch it to software mode. In that case, your desktop may feel a bit slower but it'll be more stable." )" &
+            notify-send -t 90000 "Desktop Drivers" "$( eval_gettext "Elive detected that you have an ATI graphic card, these cards are known in Linux for their multiple issues. We suggest replacing it with an Nvidia card if possible. Another option if you still have problems is to disable the hardware-accelerated rendering for your desktop and switch it to software mode. In that case, your desktop may feel a bit slower but it'll be more stable." )" &
         fi
     fi
 }
