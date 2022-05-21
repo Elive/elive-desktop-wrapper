@@ -96,7 +96,7 @@ check_updated_configurations(){
                 gtk_set_theme
                 precache /usr/bin/enlightenment &
 
-                if timeout 180 zenity --question --text="$( eval_gettext "Upgrade Desktop? There is new configuration updates available. It's very suggested to upgrade it to get the last Elive changes, but you will lose your personal settings like modules, own added keybindings, or other personal desktop configurations will be removed. Upgrade it now?" )" ; then
+                if timeout 180 zenity --question --text="$( eval_gettext "Upgrade Desktop? Elive released new configuration updates available. It's recommended to upgrade it to have the latest Elive improvements, but you will lose your personal desktop settings if you have changed anything, like extra loaded modules, your own keybindings, or other personal desktop configurations that will be restarted. Upgrade desktop now?" )" ; then
 
                     cd "$HOME/.e"
                     bkp remove 1>/dev/null 2>&1 || true
@@ -239,7 +239,7 @@ restart_desktop_configuration(){
         # TODO: here and all "restore": show the date of the backup
         if [[ -d "$HOME/.e" ]] \
             && [[ "$( cd "$HOME/.e" ; if LC_ALL=C bkp list | grep -qs " directory$" ; then echo yes ; else echo no ; fi )" = "yes" ]] \
-            && timeout 40 zenity --question --text="$( eval_gettext "Do you want to restore your desktop configurations from a recent backup instead of creating a new one?" )" ; then
+            && timeout 40 zenity --question --text="$( eval_gettext "Do you want to restore your desktop configurations from a recent backup instead of creating a new desktop configuration?" )" ; then
 
             cd "$HOME/.e"
             bkp get
@@ -303,7 +303,7 @@ verify_desktop_health(){
 
     # was the shutdown forced?
     if [[ -e "/var/tmp/elivehealth/elive-system-shutdown-forced" ]] && grep -qs "^yes$" "/var/tmp/elivehealth/elive-system-shutdown-forced" ; then
-        if zenity --question --text="$( eval_gettext "Your computer has been forcefully shut down. This is very bad for your data and can also break your desktop configurations. Do you want to recover a backup of it from the previously started desktop state? (If you don't know, select Yes.)" )" ; then
+        if zenity --question --text="$( eval_gettext "Your computer has been forcefully shut down. This is very bad for your data and can also break your desktop configurations. Do you want to recover a backup of it from a previous desktop state? (If you don't know, select Yes.)" )" ; then
             true
         fi
         # remove the verification file
@@ -488,7 +488,7 @@ restart_enlightenment(){
         fi
 
         LC_ALL=C sleep 20
-        notify-send -t 60000 "Enlightnement Restarted" "$( eval_gettext "Elive detected a failure and recovered the desktop while keeping your windows open. If you want to report an issue to Elive so we can fix it, try to reproduce it first and then describe to us the steps to follow." )" &
+        notify-send -t 60000 "Enlightnement Restarted" "$( eval_gettext "Elive detected a failure and recovered the desktop while keeping your windows open. If you want to report an issue to Elive so we can fix it, first try to reproduce the issue and then describe to us the steps to reproduce it too." )" &
 
         # see if we restarted too much, if so, it will be asked to recover configuration in the next startx
         crashes_watcher
