@@ -6,6 +6,7 @@ EL_REPORTS="1"
 . gettext.sh
 TEXTDOMAIN="desktopwrapper"
 export TEXTDOMAIN
+export EL_REPORTS=1
 
 
 # no need to enable since we have el_error & debug info
