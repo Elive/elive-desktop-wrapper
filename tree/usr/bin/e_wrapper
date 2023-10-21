@@ -180,7 +180,7 @@ dbus_get_new_address(){
 
     # final alternative way
     if [[ -z "$DBUS_SESSION_BUS_ADDRESS" ]] ; then
-        for PID in $( pgrep gnome-keyring ) $e_start_pid
+        for PID in $( pgrep -f gnome-keyring ) $e_start_pid
         do
             [[ -z "$PID" ]] && continue
             pong="$( DBUS_SESSION_BUS_ADDRESS="$(grep -z DBUS_SESSION_BUS_ADDRESS /proc/$PID/environ 2>/dev/null | cut -d= -f1- )" timeout 5 enlightenment_remote -ping 2>/dev/null )"
