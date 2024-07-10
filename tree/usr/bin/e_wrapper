@@ -97,7 +97,7 @@ check_updated_configurations(){
                 gtk_set_theme
                 precache /usr/bin/enlightenment &
 
-                if timeout 180 zenity --question --text="$( eval_gettext "Upgrade Desktop? Elive released new configuration updates available. It's recommended to upgrade it to have the latest Elive improvements, but you will lose your personal desktop settings if you have changed anything, like extra loaded modules, your own keybindings, or other personal desktop configurations that will be restarted. Upgrade desktop now?" )" ; then
+                if timeout 180 zenity --question --text="$( eval_gettext "Upgrade Desktop? Elive released new configuration updates. It's recommended to upgrade it to have the latest Elive improvements, but you will lose your personal desktop settings if you have changed anything, like extra loaded modules, your own keybindings, or other personal desktop configurations that will be restarted. Upgrade desktop now?" )" ; then
 
                     cd "$HOME/.e"
                     bkp remove 1>/dev/null 2>&1 || true
@@ -240,7 +240,7 @@ restart_desktop_configuration(){
         # TODO: here and all "restore": show the date of the backup
         if [[ -d "$HOME/.e" ]] \
             && [[ "$( cd "$HOME/.e" ; if LC_ALL=C bkp list | grep -qs " directory$" ; then echo yes ; else echo no ; fi )" = "yes" ]] \
-            && timeout 40 zenity --question --text="$( eval_gettext "Do you want to restore your desktop configurations from a recent backup instead of creating a new desktop configuration?" )" ; then
+            && timeout 40 zenity --question --text="$( eval_gettext "Would you like to restore your desktop configurations from a recent backup instead of creating a new one?" )" ; then
 
             cd "$HOME/.e"
             bkp get
@@ -260,7 +260,7 @@ restart_desktop_configuration(){
         el_speak_text "a-live desktop configuration upgraded"
     fi
 
-    timeout 50 zenity --info --text="$( eval_gettext "Your desktop configuration has been restored. The backup of the old desktop configuration is available in:" )\n$HOME/.e.old"
+    timeout 50 zenity --info --text="$( eval_gettext "Your desktop configuration has been restored. The backup of the old desktop configuration is here:" )\n$HOME/.e.old"
 
     # - notify user }}}
 }
@@ -284,7 +284,7 @@ verify_desktop_health(){
         crashes_messages
 
         gtk_set_theme
-        if timeout 40 zenity --question --text="$( eval_gettext "Your desktop seems to have crashed too many times recently. Do you want to restart to a new clean desktop configuration?" )" ; then
+        if timeout 40 zenity --question --text="$( eval_gettext "Your desktop seems to have crashed too many times recently. Would you like to restart to a new clean desktop configuration?" )" ; then
             restart_desktop_configuration
         fi
 
@@ -304,7 +304,7 @@ verify_desktop_health(){
 
     # was the shutdown forced?
     if [[ -e "/var/tmp/elivehealth/elive-system-shutdown-forced" ]] && grep -qs "^yes$" "/var/tmp/elivehealth/elive-system-shutdown-forced" ; then
-        if zenity --question --text="$( eval_gettext "Your computer has been forcefully shut down. This is very bad for your data and can also break your desktop configurations. Do you want to recover a backup of it from a previous desktop state? (If you don't know, select Yes.)" )" ; then
+        if zenity --question --text="$( eval_gettext "Your computer has been forcefully shut down. This is very bad for your data and can also break your desktop configurations. Do you want to recover a backup of your desktop from a previous state? (If you don't know, select Yes.)" )" ; then
             true
         fi
         # remove the verification file
@@ -355,7 +355,7 @@ crashes_messages(){
 
         # some strange ATI cards that reports crashes:
         if grep -qs "dri/r300_dri\.so" "$HOME/.e-crashdump.txt" ; then
-            notify-send -t 90000 "Desktop Drivers" "$( eval_gettext "Elive detected that you have an ATI graphic card, these cards are known in Linux for their multiple issues. We suggest replacing it with an Nvidia card if possible. Another option if you still have problems is to disable the hardware-accelerated rendering for your desktop and switch it to software mode. In that case, your desktop may feel a bit slower but it'll be more stable." )" &
+            notify-send -t 90000 "Desktop Drivers" "$( eval_gettext "Elive detected that you have an ATI graphic card, which are known in Linux for their multiple issues. We suggest replacing it with an Nvidia card if possible. Another option if you still have problems is to disable the hardware-accelerated rendering for your desktop and switch it to software mode. In that case, your desktop may feel a bit slower but it'll be more stable." )" &
         fi
     fi
 }
@@ -489,7 +489,7 @@ restart_enlightenment(){
         fi
 
         LC_ALL=C sleep 20
-        notify-send -t 60000 "Enlightnement Restarted" "$( eval_gettext "Elive detected a failure and recovered the desktop while keeping your windows open. If you want to report an issue to Elive so we can fix it, first try to reproduce the issue and then describe to us the steps to reproduce it too." )" &
+        notify-send -t 60000 "Enlightnement Restarted" "$( eval_gettext "Elive detected a failure and recovered the desktop while keeping your windows open. If you want to report an issue to Elive so we can fix it, first try to reproduce the issue, then describe the steps to reproduce it." )" &
 
         # see if we restarted too much, if so, it will be asked to recover configuration in the next startx
         crashes_watcher
