@@ -103,7 +103,7 @@ check_updated_configurations(){
                 gtk_set_theme
                 precache /usr/bin/enlightenment &
 
-                if timeout 180 zenity --question --text="$( eval_gettext "Upgrade Desktop? Elive released new configuration updates. It's recommended to upgrade it to have the latest Elive improvements, but you will lose your personal desktop settings if you have changed anything, like extra loaded modules, your own keybindings, or other personal desktop configurations that will be restarted. Upgrade desktop now?" )" ; then
+                if timeout 180 zenity --question --text="$( eval_gettext "Elive released new updates for the desktop, which is a good idea to upgrade it to get the latest improvements, but if you've changed settings like modules or keybindings, those will be reset. Do you want to upgrade it?" )" ; then
 
                     cd "$HOME/.e"
                     bkp remove 1>/dev/null 2>&1 || true
@@ -361,7 +361,7 @@ crashes_messages(){
 
         # some strange ATI cards that reports crashes:
         if grep -qs "dri/r300_dri\.so" "$HOME/.e-crashdump.txt" ; then
-            notify-send -t 90000 "Desktop Drivers" "$( eval_gettext "Elive detected that you have an ATI graphic card, which are known in Linux for their multiple issues. We suggest replacing it with an Nvidia card if possible. Another option if you still have problems is to disable the hardware-accelerated rendering for your desktop and switch it to software mode. In that case, your desktop may feel a bit slower but it'll be more stable." )" &
+            notify-send -t 90000 "Desktop Drivers" "$( eval_gettext "Elive detected an ATI graphics card, which are known to have multiple issues in Linux. We recommend replacing it with an Nvidia card if possible. Alternatively, if problems persist, you can disable hardware-accelerated rendering and switch to software mode. This may make your desktop slightly slower but more stable." )" &
         fi
     fi
 }
