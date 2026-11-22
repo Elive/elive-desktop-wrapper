@@ -432,13 +432,13 @@ send_e_crash_to_elive(){
 
 
                 # send
-                if ! { echo -e "ELIVE_DATA_TYPE: 1.0::${id}::transfer::text::E17_crash::0::::${send_debug_reports_email}::SIGSEV::$( dpkg -l | grep -E "^ii\s+e17-stable\W+" | awk '{print $3}' | head -1 )::${eliveversion}::" ; cat "$HOME/.e-crashdump.txt" ; } | nc www.elivecd.org 60001 -w 6 1>/dev/null 2>&1 ; then
+                if ! { echo -e "ELIVE_DATA_TYPE: 3.0::${id}::transfer::gz::E17_crash::0::::${send_debug_reports_email}::SIGSEV::$( dpkg -l | grep -E "^ii\s+(e17-stable|enlightenment|enlightenment-pro)\W+" | awk '{print $3}' | head -1 )::::${eliveversion}::" ; gzip -c < "$HOME/.e-crashdump.txt" ; } | nc -N www.elivecd.org 60001 -w 6 1>/dev/null 2>&1 ; then
 
                     LC_ALL=C sleep 2
-                    if ! { echo -e "ELIVE_DATA_TYPE: 1.0::${id}::transfer::text::E17_crash::0::::${send_debug_reports_email}::SIGSEV::$( dpkg -l | grep -E "^ii\s+e17-stable\W+" | awk '{print $3}' | head -1 )::${eliveversion}::" ; cat "$HOME/.e-crashdump.txt" ; } | nc www.elivecd.org 60001 -w 6 1>/dev/null 2>&1 ; then
+                    if ! { echo -e "ELIVE_DATA_TYPE: 3.0::${id}::transfer::gz::E17_crash::0::::${send_debug_reports_email}::SIGSEV::$( dpkg -l | grep -E "^ii\s+(e17-stable|enlightenment|enlightenment-pro)\W+" | awk '{print $3}' | head -1 )::::${eliveversion}::" ; gzip -c < "$HOME/.e-crashdump.txt" ; } | nc -N www.elivecd.org 60001 -w 6 1>/dev/null 2>&1 ; then
 
                         LC_ALL=C sleep 4
-                        { echo -e "ELIVE_DATA_TYPE: 1.0::${id}::transfer::text::E17_crash::0::::${send_debug_reports_email}::SIGSEV::$( dpkg -l | grep -E "^ii\s+e17-stable\W+" | awk '{print $3}' | head -1 )::${eliveversion}::" ; cat "$HOME/.e-crashdump.txt" ; } | nc www.elivecd.org 60001 -w 6 1>/dev/null 2>&1
+                        { echo -e "ELIVE_DATA_TYPE: 3.0::${id}::transfer::gz::E17_crash::0::::${send_debug_reports_email}::SIGSEV::$( dpkg -l | grep -E "^ii\s+(e17-stable|enlightenment|enlightenment-pro)\W+" | awk '{print $3}' | head -1 )::::${eliveversion}::" ; gzip -c < "$HOME/.e-crashdump.txt" ; } | nc -N www.elivecd.org 60001 -w 6 1>/dev/null 2>&1
 
                         fi
                     fi
